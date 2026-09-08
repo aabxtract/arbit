@@ -1,0 +1,14 @@
+{
+  "name": "arbit-demo-agents",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Arbit demo agents: good (compliant) + bad (penalty lane) on Robinhood Chain",
+  "scripts": {
+    "good": "node good-agent.js",
+    "bad": "node bad-agent.js"
+  },
+  "dependencies": {
+    "ethers": "^6.13.0"
+  }
+}
