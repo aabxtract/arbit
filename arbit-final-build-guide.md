@@ -1,7 +1,9 @@
 # Arbit — Final Build Guide
 **Programmable Hookathon | Deadline: Sep 10, 2026 | Prize: $10,000**
 
-> **Status (Sep 7): `forge build` clean, `forge test` 28 pass + 2 fork opt-in (`RUN_FORK_TESTS=1`). LIVE ON ROBINHOOD TESTNET (46630, verified on explorer): mock-ARBT `0xd2cA…1533`, PM `0x38d1…CD8E`, registry `0x07f0…5eCa9b`, hook `0xb099…0A40C0`, all 3 fee flows + native pool confirmed onchain (buyback 47800300000000000, victim 60000000000000000). 4.1 hard-block self-check: every statically-checkable code PASS. Feed: 2 finalized V4 launches (RHCR custom 4.0 + own V4 token). Graph is launch-shaped: token + registry + hook + `ArbitInitializer`. BLOCKING on owner: mainnet API-key flow (key obtained), brand assets, funding decisions, public repo. Server-only remainder: preflight findings, kernel-vs-module confirmation, turnaround time.**
+> **Status (Sep 7): `forge build` clean, `forge test` 40 pass + 2 fork opt-in. Preflight inputs: name Arbit/ARBT ✓, X @arbit_hook ✓, creator-funded ✓, wallet 0x473b ✓; description DRAFTED (await approval); website prompt DELIVERED; image PENDING file+URI; economics BLOCKED — $3 gas budget insufficient (see Budget). Slither 0 high/medium. Testnet live (pre-stock/badge). Graph: token + registry + hook + initializer + badge.**
+>
+> **Budget — $5 MAX plan (measured Sep 7, gas ~0.24 gwei, ETH ~$2470): badge LEAVES the launch graph (deploys later standalone for ~$0.40 — code stays, `setBadge`/`setMinter` are post-launch owner calls; testnet demo still runs the full suite, redeploy there free via faucet). 4-target pack (token+registry+hook+initializer): init bytes 24,526 ≈ 5.1M gas ≈ $3.03 + init/LP/buy/wiring/Router ≈ $0.75–1.10 → gas ≈ $3.80–4.15. Value: first buy $1.05 (floor) + minimal concentrated LP ~$0.30. TOTAL ≈ $5.15–5.50 at current gas — fits ONLY if gas ≤0.20 gwei at fire time. WATCH: `cast gas-price --rpc-url https://rpc.mainnet.chain.robinhood.com` (÷1e9 = gwei). Fire at ≤200000000 wei. If gas won't dip by Sep 9,Fallback: strip badge wiring from hook source (saves ~$0.15, needs retest) or accept delay. HookFund ARBT costs no ETH. Testnet spending is faucet-funded, outside this budget.**
 
 ---
 
@@ -18,6 +20,8 @@ Arbit is a Uniswap v4 hook where every swap directly moves assets based on who y
 | Unregistered bot | 1.00% | 60% → victim compensation, 40% → buyback + burn |
 
 **Buyback Guard:** Auto-buyback only fires when fee pool ≥ `MIN_BUYBACK_AMOUNT` (ARBT units the hook actually holds — retune per deployment) AND `BUYBACK_COOLDOWN` has elapsed. Prevents spam triggering and flash loan manipulation. TWAP pricing is explicitly post-hackathon — MVP has no oracle dependency by design.
+
+**Stock-pool edge:** pools flagged via `setStockPool` (owner-only) get 2/3 fees (30→20, 15→10, 5→3, 100→66) AND 1.5x accrual on every flow. Net effect is a real subsidy: cheaper trades that fill the (shared) burn schedule faster. Demo: standard pool vs AAPL/USDG-style pool side by side.
 
 **The demo story:**
 > Human trader swaps → 20% of fee flows to buyback pool → Unregistered bot swaps → 1% tax collected → threshold hit + cooldown elapsed → hook executes buyback automatically → Arbit token supply decreases → token appreciates
@@ -707,6 +711,11 @@ immutable token/registry refs. Remaining lows triaged benign and documented here
 | 10 | Admission `CROSS_CHAIN_REPLAY` | FIXED — immutable `chainId` + deploy-time `block.chainid` check on hook + initializer (mirrors kernel); canonical-PM runtime binding at pack is the real protection (`test_WrongChainDeployReverts`) |
 | 11 | Admission `POOL_MANAGER_AUTHENTICATION_MISSING` | VERIFIED — `onlyPoolManager` on all 10 callbacks incl. 8 stubs (`test_DirectCallbackBypassReverts`, Cork class) |
 | 12 | Admission `UNBALANCED_SETTLEMENT` | VERIFIED by construction — hook returns zero deltas and never settles/takes; initializer settles every leg it opens (launch-sim asserts balances) |
+| 13 | Stock-pool subsidy (2/3 collection, 1.5x accrual from BASE fee) | ACCEPTED design — accruals exceed collections on stock pools by construction (2.25x drain rate per unit volume); solvency still capped by real balance; owner flag is needs-evidence (mutable fee surface). `test/Stock.t.sol` pins exact ratios |
+| 14 | `previewFee` shows pre-discount tiers | Accepted — stock discount applies in-hook only; preview is the base schedule |
+| 15 | `missing-zero-check` on registry `_initializer` | Accepted — zero disables in-launch wiring (standalone/testnet mode); documented |
+| 16 | `arbitrary-send-erc20` on initializer pull | Accepted — source is the immutable launch wallet bound at construction, not caller-supplied |
+| 17 | Badge holder halving + claim-once flags | `test/Badge.t.sol` (6 tests): tiers, double-claim, auth, discount event, transfer-keeps-perk |
 
 NOT covered by this audit (state explicitly): economic soundness of fee levels, oracle/TWAP design (doesn't
 exist yet), the Programmable graph/pack layer, offchain demo scripts, upgrade story (none — immutable by design).

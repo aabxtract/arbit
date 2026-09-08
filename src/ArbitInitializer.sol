@@ -29,6 +29,7 @@ contract ArbitInitializer is IUnlockCallback {
 
     IPoolManager public immutable manager;
     address public immutable graphFactory;
+    address public immutable wallet; // sole ARBT source + ETH-dust + buy recipient
     uint256 public immutable chainId;
     bool public initialized;
 
@@ -46,11 +47,15 @@ contract ArbitInitializer is IUnlockCallback {
         _;
     }
 
-    constructor(IPoolManager _manager, address _graphFactory, uint256 _chainId) {
-        require(address(_manager) != address(0) && _graphFactory != address(0), "Zero");
+    constructor(IPoolManager _manager, address _graphFactory, address _wallet, uint256 _chainId) {
+        require(
+            address(_manager) != address(0) && _graphFactory != address(0) && _wallet != address(0),
+            "Zero"
+        );
         require(block.chainid == _chainId, "Wrong chain");
         manager = _manager;
         graphFactory = _graphFactory;
+        wallet = _wallet;
         chainId = _chainId;
     }
 
@@ -58,7 +63,6 @@ contract ArbitInitializer is IUnlockCallback {
         ArbitRegistry registry;
         address hook;
         address token;
-        address wallet;
         uint256 hookFund; // ARBT pulled from wallet into the hook (rewards/victim/burn backing)
         uint256 seedAmount; // ARBT pulled from wallet for the seed position (+dust→hook)
         uint256 buyAmount; // exact first-buy ETH input, ≤ msg.value (rest funds LP dust→wallet)
@@ -78,6 +82,11 @@ contract ArbitInitializer is IUnlockCallback {
         if (initialized) revert AlreadyInitialized();
         if (a.buyAmount == 0 || msg.value < a.buyAmount) revert BadValue();
 
+        // EFFECT FIRST: reentrancy guard before any external call (Slither
+        // reentrancy-eth — a malicious wallet receiving the ETH sweep could
+        // otherwise reenter; a later revert rolls the flag back atomically).
+        initialized = true;
+
         PoolKey memory key = PoolKey({
             currency0: Currency.wrap(address(0)), // native ETH
             currency1: Currency.wrap(a.token),
@@ -87,8 +96,9 @@ contract ArbitInitializer is IUnlockCallback {
         });
         PoolId poolId = key.toId();
 
-        // 1. Pull ARBT (hook fund + seed) — wallet approved pre-launch
-        IERC20(a.token).safeTransferFrom(a.wallet, address(this), a.hookFund + a.seedAmount);
+        // 1. Pull ARBT (hook fund + seed) — wallet approved pre-launch.
+        // Source is the immutable launch wallet: no arbitrary-from.
+        IERC20(a.token).safeTransferFrom(wallet, address(this), a.hookFund + a.seedAmount);
         IERC20(a.token).safeTransfer(a.hook, a.hookFund);
 
         // 2. Wire registry in-launch (owner EOA cannot do this atomically)
@@ -107,19 +117,18 @@ contract ArbitInitializer is IUnlockCallback {
         if (dust > 0) IERC20(a.token).safeTransfer(a.hook, dust);
         uint256 ethDust = address(this).balance - a.buyAmount;
         if (ethDust > 0) {
-            (bool ok,) = a.wallet.call{value: ethDust}("");
+            (bool ok,) = wallet.call{value: ethDust}("");
             require(ok, "ETH sweep failed");
         }
 
         // 5. Atomic first buy: exact buyAmount ETH in → ARBT out to wallet
         uint256 bought = abi.decode(
-            manager.unlock(abi.encodeCall(this._buy, (key, a.buyAmount, a.wallet))),
+            manager.unlock(abi.encodeCall(this._buy, (key, a.buyAmount, wallet))),
             (uint256)
         );
         if (bought < a.minTokensOut) revert InsufficientBuyOutput();
 
-        initialized = true;
-        emit LaunchInitialized(poolId, a.wallet, a.hookFund, bought);
+        emit LaunchInitialized(poolId, wallet, a.hookFund, bought);
     }
 
     function _addLiquidity(PoolKey calldata key, int24 tickLower, int24 tickUpper, int128 delta)

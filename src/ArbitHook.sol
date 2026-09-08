@@ -15,6 +15,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import "./ArbitRegistry.sol";
+import "./ArbitBadge.sol";
 
 /// @title ArbitHook
 /// @notice Uniswap v4 dynamic-fee hook: every swap is priced by participant
@@ -32,6 +33,10 @@ contract ArbitHook is IHooks, ReentrancyGuard, Ownable {
     ArbitRegistry public immutable registry;
     address public immutable arbitToken;
     IPoolManager public immutable poolManager;
+    /// @notice Badge passes (holder perk). Set post-launch by owner — claims
+    /// are pull-based so no in-launch wiring is needed (unlike setHook).
+    ArbitBadge public badge;
+    bool private badgeSet;
     /// @notice Chain this deployment is bound to (pack: 4663). Mirrors the
     /// kernel's deployment-chain check; pack also binds the canonical
     /// PoolManager runtime hash, which is the real cross-chain protection.
@@ -53,11 +58,25 @@ contract ArbitHook is IHooks, ReentrancyGuard, Ownable {
     uint256 public constant VICTIM_SHARE = 60; // 60% of bot tax to victims
     uint256 public constant BOT_BUYBACK = 40; // 40% of bot tax to buyback+burn
 
+    // ── Stock-pool edge ──────────────────────────────────────────────
+    // Tokenized-stock pools (AAPL/USDG, TSLA/USDG…) accrue buyback 1.5x and
+    // charge 2/3 fees: more burn pressure where stock trading is active,
+    // lower tolls to attract that flow. Keyed by PoolId (same as allowlist).
+    // NOTE: the multiplier accelerates the SHARED backing schedule — it does
+    // not create funds. Stock flow drains the hook's ARBT balance faster.
+    mapping(PoolId => bool) public isStockPool;
+    uint256 public constant STOCK_MULTIPLIER = 150; // 1.5x = 150/100
+    uint256 public constant STOCK_FEE_NUM = 2; // stock fee = base * 2/3
+    uint256 public constant STOCK_FEE_DEN = 3; // (30→20, 15→10, 5→3, 100→66)
+
     // Pending rewards for agents — claimed separately (pull pattern)
     mapping(address => uint256) public pendingRewards;
 
     // Single-classify cache: beforeSwap result reused by afterSwap, then cleared.
+    // Both base and charged fees are cached: charged (discounted) is what the
+    // trader paid (override, events); base is what stock accruals use (subsidy).
     mapping(bytes32 => uint256) private pendingFeeBps;
+    mapping(bytes32 => uint256) private pendingBaseFeeBps;
     mapping(bytes32 => ArbitRegistry.ParticipantType) private pendingType;
     mapping(bytes32 => address) private pendingTrader;
 
@@ -65,6 +84,10 @@ contract ArbitHook is IHooks, ReentrancyGuard, Ownable {
     event BuybackExecuted(uint256 amount, uint256 timestamp);
     event AgentRewarded(address agent, uint256 amount);
     event VictimCompensated(address victim, uint256 amount);
+    event StockPoolSet(PoolId indexed poolId, bool isStock);
+    event StockMultiplierApplied(
+        PoolId indexed poolId, address indexed trader, uint256 originalAmount, uint256 multipliedAmount
+    );
 
     error PoolManagerOnly();
     error Unimplemented();
@@ -115,6 +138,33 @@ contract ArbitHook is IHooks, ReentrancyGuard, Ownable {
         });
     }
 
+    /// @notice Point the hook at the badge contract. Owner only, set once.
+    function setBadge(address _badge) external onlyOwner {
+        require(!badgeSet, "Badge already set");
+        require(_badge != address(0), "Zero address");
+        badge = ArbitBadge(_badge);
+        badgeSet = true;
+    }
+
+    /// @notice Claim the badge tier your reputation earned. Pull-based:
+    /// no per-swap writes, qualification reads existing registry state.
+    function claimBadge(ArbitBadge.Tier tier) external nonReentrant {
+        require(address(badge) != address(0), "Badge not set");
+        ArbitRegistry.Agent memory a = registry.getAgent(msg.sender);
+        require(a.active, "Not a registered agent");
+        if (tier == ArbitBadge.Tier.Silver) require(a.reputationScore >= 500, "Need 500 rep");
+        if (tier == ArbitBadge.Tier.Gold) require(a.reputationScore >= 800, "Need 800 rep");
+        // Bronze: registration alone suffices
+        badge.mint(msg.sender, tier);
+    }
+
+    /// @notice Mark/unmark a pool as a stock pool. Owner only. The multiplier
+    /// itself is an immutable constant (no mutable fee controls).
+    function setStockPool(PoolId poolId, bool isStock) external onlyOwner {
+        isStockPool[poolId] = isStock;
+        emit StockPoolSet(poolId, isStock);
+    }
+
     /// @notice Resolve the effective trader.
     /// @dev `sender` is whoever called PoolManager.swap — normally the shared
     /// router/unlocker (Hooks.sol:256), NOT the EOA. Routers MUST pass the real
@@ -157,12 +207,22 @@ contract ArbitHook is IHooks, ReentrancyGuard, Ownable {
         address trader = _trader(sender, hookData);
 
         // Single classify per swap — cached for afterSwap.
-        (uint256 feeBps, ArbitRegistry.ParticipantType pType) =
+        (uint256 baseFeeBps, ArbitRegistry.ParticipantType pType) =
             registry.classify(trader, tx.gasprice);
+        // Stock-pool discount: lower tolls to attract stock flow (30→20, 15→10, 5→3, 100→66).
+        // Accruals still use the BASE fee (1.5x subsidy — see afterSwap), so the
+        // cached charged fee exists only for the override + event honesty.
+        uint256 feeBps = isStockPool[poolId]
+            ? (baseFeeBps * STOCK_FEE_NUM) / STOCK_FEE_DEN
+            : baseFeeBps;
+        // Badge-holder perk: one extra halving (HIGH 5→2, HUMAN 30→15).
+        // One read-only balanceOf — O(1), no state touched.
+        if (address(badge) != address(0) && badge.balanceOf(trader) > 0) feeBps /= 2;
         require(feeBps <= registry.MAX_FEE_BPS(), "Arbit: fee exceeds cap");
 
         bytes32 slot = _pendingSlot(key, sender);
         pendingFeeBps[slot] = feeBps;
+        pendingBaseFeeBps[slot] = baseFeeBps;
         pendingType[slot] = pType;
         pendingTrader[slot] = trader;
 
@@ -182,26 +242,31 @@ contract ArbitHook is IHooks, ReentrancyGuard, Ownable {
         bytes calldata
     ) external override onlyPoolManager nonReentrant returns (bytes4, int128) {
         bytes32 slot = _pendingSlot(key, sender);
-        uint256 feeBps = pendingFeeBps[slot];
+        uint256 feeBps = pendingFeeBps[slot]; // charged (discounted on stock pools)
+        uint256 baseFeeBps = pendingBaseFeeBps[slot]; // pre-discount base
         ArbitRegistry.ParticipantType pType = pendingType[slot];
         address trader = pendingTrader[slot];
 
         // EFFECT — clear callback state first (isolate callback state).
         delete pendingFeeBps[slot];
+        delete pendingBaseFeeBps[slot];
         delete pendingType[slot];
         delete pendingTrader[slot];
 
         if (trader == address(0)) return (IHooks.afterSwap.selector, 0);
 
+        // Accruals use the BASE fee: on stock pools this is a 1.5x subsidy
+        // (discounted collection, boosted accrual) drawn from shared backing.
         // Fee is measured on the INPUT leg: token0 when zeroForOne, else token1.
         // (Audit Sep 7: previously always amount0 — under/over-counted one direction.)
-        uint256 feeAmount = _extractFeeAmount(delta, feeBps, params.zeroForOne);
+        uint256 feeAmount = _extractFeeAmount(delta, baseFeeBps, params.zeroForOne);
         if (feeAmount == 0) return (IHooks.afterSwap.selector, 0);
 
         // ── Asset flows based on participant type ──
         if (pType == ArbitRegistry.ParticipantType.HUMAN) {
             // 80% to LPs (handled by PoolManager), 20% to buyback pool
             uint256 buybackContrib = (feeAmount * BUYBACK_SHARE) / 100;
+            buybackContrib = _applyStockBoost(key, trader, buybackContrib);
 
             // EFFECT — update state before any external interaction
             buybackPool += buybackContrib;
@@ -212,6 +277,8 @@ contract ArbitHook is IHooks, ReentrancyGuard, Ownable {
         ) {
             // Agent reward — portion of fee returned as Arbit tokens
             uint256 rewardAmount = _calculateAgentReward(feeAmount, pType);
+            // Stock edge applies BEFORE the backing cap (cap still protects solvency)
+            rewardAmount = _applyStockBoost(key, trader, rewardAmount);
 
             // EFFECT — queue reward, capped by the hook's real ARBT balance
             // (minus victim earmark) so pendingRewards never promises what
@@ -230,6 +297,8 @@ contract ArbitHook is IHooks, ReentrancyGuard, Ownable {
             // Bot — 60% victim pool, 40% buyback + burn
             uint256 victimContrib = (feeAmount * VICTIM_SHARE) / 100;
             uint256 buybackContrib = feeAmount - victimContrib;
+            victimContrib = _applyStockBoost(key, trader, victimContrib);
+            buybackContrib = _applyStockBoost(key, trader, buybackContrib);
 
             // EFFECT — update state before any external interaction
             victimPool += victimContrib;
@@ -294,6 +363,20 @@ contract ArbitHook is IHooks, ReentrancyGuard, Ownable {
         IERC20(arbitToken).safeTransfer(victim, amount);
 
         emit VictimCompensated(victim, amount);
+    }
+
+    /// @notice 1.5x accrual boost on stock pools. Pure math, no state reads
+    /// beyond the flag — O(1). Boosting changes the burn SCHEDULE, not the
+    /// backing: burns/claims stay capped by the real ARBT balance.
+    function _applyStockBoost(PoolKey calldata key, address trader, uint256 amount)
+        internal
+        returns (uint256)
+    {
+        PoolId poolId = key.toId();
+        if (!isStockPool[poolId] || amount == 0) return amount;
+        uint256 boosted = (amount * STOCK_MULTIPLIER) / 100;
+        emit StockMultiplierApplied(poolId, trader, amount, boosted);
+        return boosted;
     }
 
     // ── Helpers ──

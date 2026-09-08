@@ -41,7 +41,7 @@ contract LaunchTest is Test {
         vm.deal(wallet, 100 ether);
         manager = new PoolManager(address(this));
         arbt = new ArbitToken(wallet);
-        initializer = new ArbitInitializer(manager, wallet, block.chainid); // wallet plays graphFactory
+        initializer = new ArbitInitializer(manager, wallet, wallet, block.chainid); // wallet plays graphFactory
         registry = new ArbitRegistry(address(arbt), address(initializer), wallet);
 
         (address hookAddress, bytes32 salt) = HookMiner.find(
@@ -73,7 +73,6 @@ contract LaunchTest is Test {
                 registry: registry,
                 hook: address(hook),
                 token: address(arbt),
-                wallet: wallet,
                 hookFund: hookFund,
                 seedAmount: 2_000_000e18,
                 buyAmount: buyValue,
@@ -132,7 +131,6 @@ contract LaunchTest is Test {
             registry: registry,
             hook: address(hook),
             token: address(arbt),
-            wallet: wallet,
             hookFund: 1000e18,
             seedAmount: 10000e18,
             buyAmount: 0.1 ether,
@@ -149,7 +147,7 @@ contract LaunchTest is Test {
         initializer.initialize{value: 0.5 ether}(a);
 
         // Auth gate on a fresh instance (funded stranger, exact revert)
-        ArbitInitializer init2 = new ArbitInitializer(manager, wallet, block.chainid);
+        ArbitInitializer init2 = new ArbitInitializer(manager, wallet, wallet, block.chainid);
         address stranger = makeAddr("stranger");
         vm.deal(stranger, 1 ether);
         vm.prank(stranger);

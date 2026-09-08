@@ -1,0 +1,11 @@
+{
+  "name": "arbit-pack",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "solc": "0.8.26"
+  }
+}
