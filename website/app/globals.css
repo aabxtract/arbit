@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -127,28 +129,75 @@ body {
 }
 
 /* Navigation Bar — Floating Pill (White Glassmorphism) */
-.navbar {
+/* Top Fixed Header Wrapper */
+.top-header-wrapper {
   position: fixed;
   top: 20px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;
+  right: 0;
   z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 40px;
+  pointer-events: none;
+}
+
+/* Center Floating Glass Pill (Nav Links Only) */
+.navbar-pill {
+  pointer-events: auto;
   background-color: rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(24px) saturate(180%);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 9999px;
+  padding: 10px 28px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 1px 0 rgba(255, 255, 255, 0.06) inset;
-  width: calc(100% - 48px);
-  max-width: 1100px;
-}
-
-.navbar-inner {
-  padding: 10px 24px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
+}
+
+/* Far Left Top Brand (Outside Glass Pill Container) */
+.top-header-left {
+  position: absolute;
+  left: 40px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  pointer-events: auto;
+}
+
+/* Far Right Top Actions (Outside Glass Pill Container) */
+.top-header-right {
+  position: absolute;
+  right: 40px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
   gap: 16px;
+  pointer-events: auto;
+}
+
+/* Coming Soon Pill Badge */
+.coming-soon-pill {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  background: rgba(245, 158, 11, 0.15);
+  color: #F59E0B;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.25);
+  display: inline-flex;
+  align-items: center;
+  margin-left: 10px;
+  vertical-align: middle;
 }
 
 .brand {
@@ -274,6 +323,19 @@ body {
   background-color: var(--bg-navy-hover);
 }
 
+.btn-disconnect {
+  background-color: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #FFFFFF;
+}
+
+.btn-disconnect:hover:not(:disabled) {
+  background-color: rgba(239, 68, 68, 0.16);
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #EF4444;
+  box-shadow: 0 0 16px rgba(239, 68, 68, 0.35);
+}
+
 .btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
@@ -296,6 +358,79 @@ body {
   position: relative;
   z-index: 10;
   width: 100%;
+}
+
+/* Launched On Highlight Strip (Right after Hero) */
+.launched-strip {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 16px 0;
+  position: relative;
+  z-index: 20;
+}
+
+.launched-inner {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.launched-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #64748B;
+  flex-shrink: 0;
+}
+
+.launched-logos {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.launched-logo-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.launched-rh-logo {
+  height: 26px;
+  width: auto;
+  object-fit: contain;
+}
+
+.launched-prog-logo {
+  height: 34px;
+  width: auto;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+}
+
+.launched-subtext {
+  font-family: var(--font-body);
+  font-size: 18px;
+  font-weight: 600;
+  color: #F8FAFC;
+  letter-spacing: -0.01em;
+}
+
+.launched-divider {
+  color: rgba(255, 255, 255, 0.2);
+  font-size: 12px;
 }
 
 .hero-text-center {
@@ -1845,13 +1980,28 @@ body {
   gap: 24px;
 }
 
+.footer-brand-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.footer-brand-logo {
+  height: 32px;
+  width: auto;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+}
+
 .footer-brand-title {
-  font-family: var(--font-heading);
-  font-size: 24px;
+  font-family: "Pixelify Sans", cursive, sans-serif !important;
+  font-size: 30px;
   font-weight: 700;
   color: #FFFFFF;
-  letter-spacing: -0.02em;
-  margin-bottom: 8px;
+  letter-spacing: 0.02em;
+  margin: 0;
 }
 
 .footer-brand-desc {
@@ -1903,4 +2053,204 @@ body {
   font-weight: 500;
   margin-top: 8px;
 }
+
+/* Subtle Floating Bob Animation when Badge is Active */
+@keyframes subtleBob {
+  0%, 100% {
+    transform: translateY(0px) rotate(-3deg);
+  }
+  50% {
+    transform: translateY(-12px) rotate(4deg);
+  }
+}
+
+/* Floating Pixel Badges Dither Animation */
+@keyframes floatFadeInOut {
+  0% {
+    opacity: 0;
+    transform: translateY(40px) scale(0.6) rotate(-14deg);
+    filter: blur(8px);
+  }
+  16% {
+    opacity: 1;
+    transform: translateY(0px) scale(1) rotate(0deg);
+    filter: blur(0px);
+  }
+  /* Floating / bobbing active state for ~3 seconds */
+  41% {
+    transform: translateY(-14px) scale(1.05) rotate(5deg);
+  }
+  66% {
+    opacity: 1;
+    transform: translateY(0px) scale(1) rotate(-3deg);
+    filter: blur(0px);
+  }
+  84% {
+    opacity: 0;
+    transform: translateY(-35px) scale(0.65) rotate(12deg);
+    filter: blur(6px);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(40px) scale(0.6) rotate(-14deg);
+    filter: blur(8px);
+  }
+}
+
+/* Background Gradient Accents for Fee (#lanes), Why System Exists, and FAQ Sections */
+#lanes {
+  position: relative;
+  overflow: hidden;
+  background: radial-gradient(circle at 20% 30%, rgba(1, 110, 254, 0.18), transparent 55%),
+              radial-gradient(circle at 80% 70%, rgba(1, 110, 254, 0.14), transparent 50%),
+              #000000;
+  padding: 80px 0;
+  border-bottom: 1px solid var(--border-strong);
+}
+
+#why-system-exists {
+  position: relative;
+  overflow: hidden;
+  padding: 100px 0;
+  background: radial-gradient(circle at 50% 50%, rgba(1, 110, 254, 0.22), transparent 65%),
+              radial-gradient(circle at 90% 20%, rgba(1, 110, 254, 0.14), transparent 45%),
+              #000000;
+  border-bottom: 1px solid var(--border-strong);
+}
+
+.why-watermark {
+  position: absolute;
+  top: 50%;
+  right: -240px;
+  transform: translateY(-50%);
+  width: 760px;
+  max-width: 800px;
+  height: auto;
+  opacity: 0.10;
+  pointer-events: none;
+  z-index: 1;
+  filter: brightness(0) invert(1);
+}
+
+#faq {
+  position: relative;
+  overflow: hidden;
+  padding: 90px 0;
+  background: radial-gradient(circle at 50% 40%, rgba(1, 110, 254, 0.18), transparent 70%),
+              radial-gradient(circle at 10% 80%, rgba(1, 110, 254, 0.12), transparent 50%),
+              #000000;
+}
+
+/* ==========================================================================
+   MOBILE RESPONSIVE — max-width: 768px
+   ========================================================================== */
+@media (max-width: 768px) {
+
+  /* ── Header: switch from absolute-positioned children to flex row ── */
+  .top-header-wrapper {
+    top: 12px;
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  /* Hide the center navbar pill completely on mobile */
+  .navbar-pill {
+    display: none !important;
+  }
+
+  /* Remove absolute positioning — let flexbox handle it */
+  .top-header-left {
+    position: relative;
+    left: auto;
+    top: auto;
+    transform: none;
+    flex-shrink: 0;
+  }
+
+  .top-header-right {
+    position: relative;
+    right: auto;
+    top: auto;
+    transform: none;
+    flex-shrink: 0;
+  }
+
+  /* Slightly smaller brand logo on mobile */
+  .brand-logo {
+    height: 28px;
+  }
+
+  /* Smaller connect wallet button on mobile */
+  .btn-connect {
+    padding: 7px 14px;
+    font-size: 11px;
+  }
+
+  /* ── Glass cards in "How It Works" ── */
+  .glass-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .glass-auto-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  /* ── Carousel ── */
+  .carousel-wrapper {
+    padding: 0;
+  }
+
+  .carousel-card {
+    min-height: auto;
+  }
+
+  /* ── FAQ section ── */
+  #faq {
+    padding: 60px 0;
+  }
+
+  /* ── "How it works" section ── */
+  .section-how-it-works {
+    padding: 60px 0;
+  }
+
+  /* ── Watermark smaller on mobile ── */
+  .section-watermark {
+    width: 300px;
+    right: -100px;
+  }
+
+  .why-watermark {
+    width: 300px;
+    right: -100px;
+  }
+
+  /* ── Lanes section ── */
+  #lanes {
+    padding: 60px 0;
+  }
+}
+
+/* Extra small screens (phones in portrait) */
+@media (max-width: 400px) {
+  .top-header-wrapper {
+    padding: 0 12px;
+    top: 8px;
+  }
+
+  .brand-logo {
+    height: 24px;
+  }
+
+  .btn-connect {
+    padding: 6px 10px;
+    font-size: 10px;
+  }
+}
+
+
 

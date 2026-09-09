@@ -12,6 +12,7 @@ import {
   fetchAgentStatus
 } from "../lib/contracts";
 import { BackgroundRippleEffect } from "../components/ui/background-ripple-effect";
+import { FloatingPixelBadges } from "../components/ui/floating-pixel-badges";
 
 const FAQ_ITEMS = [
   {
@@ -312,6 +313,26 @@ export default function ArbitDappPage() {
     }
   }
 
+  // ── 6b. Disconnect Wallet ───────────────────────────────────────────
+  function disconnectWallet() {
+    setAccount(null);
+    setChainId(null);
+    setAgentStatus({
+      isRegistered: false,
+      stakedAmount: "0",
+      reputationScore: 0,
+      active: false,
+      feeTierBps: 30,
+      participantType: "HUMAN",
+      arbtBalance: "0",
+      allowance: "0",
+      pendingRewards: "0",
+      badges: { bronze: false, silver: false, gold: false }
+    });
+    setTxMessage("Wallet disconnected.");
+    setTxType("idle");
+  }
+
   // ── 7. Registration Flow (Approve ARBT + Register) ─────────────────
   async function handleApproveAndRegister() {
     if (!account) {
@@ -444,9 +465,21 @@ export default function ArbitDappPage() {
 
   return (
     <div className="min-h-screen bg-black text-white relative">
-      {/* ── Navigation Bar ─────────────────────────────────────────── */}
-      <nav className="navbar">
-        <div className="navbar-inner">
+      {/* ── Fixed Top Header Area ─────────────────────────────────────── */}
+      <header className="top-header-wrapper">
+        {/* Far Left Brand Logo */}
+        <div className="top-header-left">
+          <a href="#" className="brand">
+            <img
+              src="/arbit-logo-transparent.png"
+              alt="Arbit"
+              className="brand-logo"
+            />
+          </a>
+        </div>
+
+        {/* Center Floating Glassmorphism Pill (Nav Links ONLY) */}
+        <nav className="navbar-pill">
           <div className="nav-links">
             <a href="#overview" className="nav-link">Overview</a>
             <a href="#how-it-works" className="nav-link">How It Works</a>
@@ -454,30 +487,30 @@ export default function ArbitDappPage() {
             <a href="#lanes" className="nav-link">Participant Lanes</a>
             <a href="#faq" className="nav-link">FAQ</a>
           </div>
+        </nav>
 
-          <div className="nav-actions">
-            <button
-              className="btn btn-primary btn-connect"
-              onClick={connectWallet}
-              disabled={isConnecting}
-            >
-              {isConnecting
-                ? "Connecting…"
-                : account
-                ? truncateAddress(account)
-                : "Connect Wallet"}
-            </button>
-
-            <a href="#" className="brand">
-              <img
-                src="/arbit-logo-transparent.png"
-                alt="Arbit"
-                className="brand-logo"
-              />
-            </a>
-          </div>
+        {/* Far Right Top Action: Connect Wallet Button */}
+        <div className="top-header-right">
+          <button
+            className={`btn ${account ? "btn-disconnect" : "btn-primary"} btn-connect`}
+            onClick={account ? disconnectWallet : connectWallet}
+            disabled={isConnecting}
+            title={account ? "Click to disconnect wallet" : "Click to connect Web3 wallet"}
+          >
+            {isConnecting ? (
+              "Connecting…"
+            ) : account ? (
+              <span className="inline-flex items-center gap-2">
+                <span className="pulse-dot"></span>
+                <span>{truncateAddress(account)}</span>
+                <span className="mono text-xs opacity-70 ml-1">✕</span>
+              </span>
+            ) : (
+              "Connect Wallet"
+            )}
+          </button>
         </div>
-      </nav>
+      </header>
 
       {/* ── Section 1: Hero with Aceternity Background Ripple Effect ─ */}
       <header className="hero-section relative overflow-hidden" id="overview">
@@ -488,6 +521,9 @@ export default function ArbitDappPage() {
             borderColor="rgba(1, 110, 254, 0.16)"
           />
         </div>
+
+        {/* Aceternity Pixelified Dither Floating Badges (3 Left, 3 Right) */}
+        <FloatingPixelBadges />
 
         <div className="page-container hero-content relative z-10 pointer-events-none">
           <div className="hero-text-center pointer-events-auto">
@@ -501,6 +537,36 @@ export default function ArbitDappPage() {
           </div>
         </div>
       </header>
+
+      {/* ── Section: Launched On Highlight Bar ─────────────────────────── */}
+      <div className="launched-strip">
+        <div className="launched-inner">
+          <span className="launched-label">LAUNCHED ON :</span>
+
+          <div className="launched-logos">
+            {/* Robinhood Chain Logo */}
+            <div className="launched-logo-item">
+              <img
+                src="/Robinhood_Chain_Logo_White.svg"
+                alt="Robinhood Chain"
+                className="launched-rh-logo"
+              />
+            </div>
+
+            <span className="launched-divider">•</span>
+
+            {/* Programmable Market Logo & Subtext */}
+            <div className="launched-logo-item">
+              <img
+                src="/programmable logo.png"
+                alt="Programmable"
+                className="launched-prog-logo"
+              />
+              <span className="launched-subtext">Programmable Market</span>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* ── Section: How Arbit Works (Full Width Screen Background & Side Watermark) ─ */}
       <section className="section-how-it-works" id="how-it-works">
@@ -848,7 +914,10 @@ export default function ArbitDappPage() {
         <section className="section" id="lanes">
           <div className="section-header">
             <div className="section-tag">Mechanism Architecture</div>
-            <h2 className="section-title">Identity-Based Fee Routing</h2>
+            <h2 className="section-title">
+              Identity-Based Fee Routing
+              <span className="coming-soon-pill">Coming Soon</span>
+            </h2>
             <p className="section-desc">
               Every swap is classified in <code>beforeSwap</code> once in O(1) gas. Assets never sit idle:
               they directly reward honest participants and penalize exploits.
@@ -1047,7 +1116,14 @@ export default function ArbitDappPage() {
 
         {/* ── Section: Why The System Exists ─────────────────────────────── */}
         <section className="section" id="why-system-exists">
-          <div className="why-card">
+          {/* Background Watermark Logo (10% opacity, half off-screen) */}
+          <img
+            src="/arbit-logo-black-transparent.png"
+            alt=""
+            className="why-watermark"
+          />
+
+          <div className="why-card relative z-10">
             <div className="section-tag" style={{ marginBottom: 20 }}>WHY THE SYSTEM EXISTS</div>
             <h2 className="why-headline">
               We want every trader on Robinhood Chain to get more from every swap.
@@ -1104,7 +1180,14 @@ export default function ArbitDappPage() {
       <footer className="footer">
         <div className="footer-container">
           <div className="footer-brand-col">
-            <h3 className="footer-brand-title">Arbit</h3>
+            <div className="footer-brand-row">
+              <img
+                src="/arbit-logo-transparent.png"
+                alt="Arbit"
+                className="footer-brand-logo"
+              />
+              <h3 className="footer-brand-title">Arbit</h3>
+            </div>
             <p className="footer-brand-desc">
               Trading infrastructure with onchain incentives and protection.
             </p>
@@ -1115,7 +1198,7 @@ export default function ArbitDappPage() {
             <span className="footer-sep">·</span>
             <a href="#" className="footer-link">Docs</a>
             <span className="footer-sep">·</span>
-            <a href="#" className="footer-link">X</a>
+            <a href="https://x.com/arbit_hook" target="_blank" rel="noreferrer" className="footer-link">X</a>
           </div>
 
           <div className="footer-disclaimer">
