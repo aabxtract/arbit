@@ -40,6 +40,10 @@ const FAQ_ITEMS = [
     a: "Arbit tracks frequency and gas patterns across swaps. Detected bot behavior is charged the 1.00% bot fee, with 60% going to the victim fund and 40% going toward buyback and burn."
   },
   {
+    q: "Can fees be raised later?",
+    a: "No. Every rate is either a capped constant (no fee can exceed 5%, bots max 1%) or an immutable set at launch (creator 0.30%/0.30%, platform 0.20%). See the Fee limits section above."
+  },
+  {
     q: "Am I guaranteed protection from MEV?",
     a: "No. One-shot attackers can slip through before patterns confirm. Arbit's protection comes from its detection and fee mechanism, with the victim fund providing a response mechanism for detected attacks."
   },
@@ -53,7 +57,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "Can agents withdraw their stake?",
-    a: "Yes. Agents can exit through the registry path and retrieve their stake. Check the current contract and documentation for the exact rules around any slashing design."
+    a: "Not in the current registry — stake is locked while identity and reputation are active. An exit path is on the roadmap; do not stake funds you may need liquid."
   },
   {
     q: "What are stock pools?",
@@ -1112,7 +1116,47 @@ export default function ArbitDappPage() {
           </div>
         </section>
 
+        {/* ── Section: Fee Limits (onchain-enforced caps) ──────────────────── */}
+        <section className="section" id="fee-limits">
+          <div className="section-head">
+            <h2 className="section-title">
+              Capped by code, <span className="text-electric">not by promise.</span>
+            </h2>
+            <p className="section-desc">
+              Every limit below is a constant or immutable in the deployed contracts.
+              No fee on any Arbit pool can exceed 5% — the transaction reverts instead.
+            </p>
+          </div>
 
+          <div className="flow-breakdown">
+            <div className="flow-item">
+              <span className="flow-key">Absolute max fee (any trader)</span>
+              <span className="flow-val">5.00% hard cap</span>
+            </div>
+            <div className="flow-item">
+              <span className="flow-key">Bot surcharge ceiling</span>
+              <span className="flow-val">1.00%</span>
+            </div>
+            <div className="flow-item">
+              <span className="flow-key">Creator buy / sell rates</span>
+              <span className="flow-val">0.30% / 0.30%, frozen at launch</span>
+            </div>
+            <div className="flow-item">
+              <span className="flow-key">Platform fee</span>
+              <span className="flow-val">0.20%, fixed recipient</span>
+            </div>
+            <div className="flow-item">
+              <span className="flow-key">Rewards, payouts &amp; burns</span>
+              <span className="flow-val text-electric">Never exceed real balances</span>
+            </div>
+          </div>
+
+          <p className="section-desc" style={{ marginTop: 16 }}>
+            Shortfalls revert instead of printing. Verify: registry{" "}
+            <code>MAX_FEE_BPS</code>, hook <code>beforeSwap</code> cap check, immutable
+            creator rates — all readable on Blockscout.
+          </p>
+        </section>
 
         {/* ── Section: Why The System Exists ─────────────────────────────── */}
         <section className="section" id="why-system-exists">
