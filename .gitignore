@@ -26,7 +26,7 @@ website/.next/
 demo/node_modules/
 pack/node_modules/
 
-# Pack generated outputs (reproducible via pack/build.mjs — never commit)
+# Pack generated outputs (reproducible via pack/build.mjs ??? never commit)
 pack/out/
 pack/evidence/
 pack/build/
@@ -38,3 +38,4 @@ pack/launch*.json
 pack/receipt*.json
 pack/programmable-launch.config.json
 pack/*.log
+pack/arbit/
