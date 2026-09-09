@@ -1,9 +1,8 @@
 #!/usr/bin/env node
-// Arbit pack builder v2 — kernel graph (profile 4.1.0).
-// Targets: token + kernel(exact kit) + fee-module + registry + distributor +
-// initializer. Our ArbitHook/ArbitBadge/ArbitAgentExecutor are NOT packed
-// (hook dead on the official pool; badge post-launch; executor off-graph).
-// No key, no signing, no broadcast. Run: npm run build
+// Arbit pack builder v3 — seed-shape graph (profile 4.1.0).
+// Targets: seed-token (exact) + kernel (exact kit) + seed-initializer (exact)
+// + distributor (ours). Registry/hook/module/badge ship post-launch or live
+// on testnet; they are NOT packed. No key, no signing, no broadcast.
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -17,14 +16,13 @@ const EXPECTED_CLI_VERSION = "4.1.0";
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 if (process.argv.includes("--help")) {
-  process.stdout.write(`Arbit kernel-graph pack builder\n\nRequired env:\n  PROGRAMMABLE_LAUNCH_WALLET (0x...40hex)\n  PROGRAMMABLE_LAUNCH_NONCE (0x...64hex nonzero)\n  PROGRAMMABLE_SOURCE_REVISION (40-hex public commit)\n  PROGRAMMABLE_PROJECT_IMAGE_SOURCE_PATH (assets/project.png)\n  PROGRAMMABLE_PROJECT_IMAGE_URI (https)\n  PROGRAMMABLE_WEBSITE_URL, PROGRAMMABLE_X_URL\n  PROGRAMMABLE_CLI_PACKAGE (abs path to verified @programmable/launch 4.1.0)\n  PROGRAMMABLE_INITIAL_BUY_WEI, PROGRAMMABLE_LP_ETH_WEI, PROGRAMMABLE_MAX_GAS_WEI\n  PROGRAMMABLE_SEED_ARBT, PROGRAMMABLE_HOOK_FUND_ARBT, PROGRAMMABLE_MIN_TOKENS_OUT\n  PROGRAMMABLE_CREATOR_BUY_BPS, PROGRAMMABLE_CREATOR_SELL_BPS (e.g. 30/30)\n  PROGRAMMABLE_START_SQRT_PRICE (decimal key, e.g. 1:1 raw units)\nOptional:\n  PROGRAMMABLE_SOURCE_ORIGIN (default https://github.com/aabxtract/arbit)\n  PROGRAMMABLE_TOKEN_NAME/SYMBOL (default Arbit/ARBT)\n  PROGRAMMABLE_PROJECT_DESCRIPTION\n  PROGRAMMABLE_CHECKED_AT\nRefuses to run with PROGRAMMABLE_API_KEY set.\n`);
+  process.stdout.write(`Arbit seed-shape pack builder\n\nRequired env:\n  PROGRAMMABLE_LAUNCH_WALLET (0x...40hex)\n  PROGRAMMABLE_LAUNCH_NONCE (0x...64hex nonzero)\n  PROGRAMMABLE_SOURCE_REVISION (40-hex public commit)\n  PROGRAMMABLE_PROJECT_IMAGE_SOURCE_PATH (assets/arbit-official.png)\n  PROGRAMMABLE_PROJECT_IMAGE_URI (https)\n  PROGRAMMABLE_WEBSITE_URL, PROGRAMMABLE_X_URL\n  PROGRAMMABLE_CLI_PACKAGE (abs path to verified @programmable/launch 4.1.0)\n  PROGRAMMABLE_INITIAL_BUY_WEI, PROGRAMMABLE_MAX_GAS_WEI, PROGRAMMABLE_MIN_TOKENS_OUT\n  PROGRAMMABLE_CREATOR_BUY_BPS, PROGRAMMABLE_CREATOR_SELL_BPS\nOptional:\n  PROGRAMMABLE_SOURCE_ORIGIN, PROGRAMMABLE_TOKEN_NAME/SYMBOL, PROGRAMMABLE_PROJECT_DESCRIPTION\n  PROGRAMMABLE_CHECKED_AT\nRefuses to run with PROGRAMMABLE_API_KEY set.\n`);
   process.exit(0);
 }
 if (Object.hasOwn(process.env, "PROGRAMMABLE_API_KEY")) {
   throw new TypeError("this unauthenticated builder refuses PROGRAMMABLE_API_KEY");
 }
 
-// ---- CLI package (verified 4.1.0): kit artifact + kernel helpers ----
 const cliPkgDir = req("PROGRAMMABLE_CLI_PACKAGE", /^.+/);
 const cliPkg = JSON.parse(await readFile(path.join(cliPkgDir, "package.json"), "utf8"));
 if (cliPkg.version !== EXPECTED_CLI_VERSION) {
@@ -36,9 +34,6 @@ if (solc.version() !== EXPECTED_SOLC) throw new TypeError(`need ${EXPECTED_SOLC}
 const { createRobinhoodNativeFeeRuntimeImmutablesV1, ROBINHOOD_NATIVE_FEE_PERMISSIONS_V1 } =
   await import(pathToFileURL(path.join(cliPkgDir, "src", "robinhood-native-fee-v1.mjs")).href);
 const { buildLaunch } = await import(pathToFileURL(path.join(cliPkgDir, "src", "pack.mjs")).href);
-const { getContractAddress, keccak256 } = await import(
-  pathToFileURL(path.join(cliPkgDir, "node_modules", "viem", "_esm", "index.js")).href
-);
 
 const root = path.dirname(fileURLToPath(import.meta.url)); // pack/
 const DRYRUN = process.env.ARBIT_DRYRUN === "1";
@@ -62,21 +57,55 @@ const checkedAt = process.env.PROGRAMMABLE_CHECKED_AT ?? new Date().toISOString(
 const buyWei = reqInt("PROGRAMMABLE_INITIAL_BUY_WEI");
 const lpEthWei = reqInt("PROGRAMMABLE_LP_ETH_WEI");
 const maxGasWei = reqInt("PROGRAMMABLE_MAX_GAS_WEI");
-const seedArbt = reqInt("PROGRAMMABLE_SEED_ARBT");
-const hookFundArbt = reqInt("PROGRAMMABLE_HOOK_FUND_ARBT");
 const minTokensOut = reqInt("PROGRAMMABLE_MIN_TOKENS_OUT");
 const creatorBuyBps = reqInt("PROGRAMMABLE_CREATOR_BUY_BPS");
 const creatorSellBps = reqInt("PROGRAMMABLE_CREATOR_SELL_BPS");
-const startSqrtPrice = reqInt("PROGRAMMABLE_START_SQRT_PRICE");
 
-// ---- our unit: vendor + compile ----
-const TARGETS = [
-  ["src/ArbitToken.sol", "ArbitToken", "token"],
-  ["src/ArbitRegistry.sol", "ArbitRegistry", "registry"],
-  ["src/ArbitFeeModule.sol", "ArbitFeeModule", "module"],
-  ["src/ArbitDistributor.sol", "ArbitDistributor", "distributor"],
-  ["src/ArbitInitializer.sol", "ArbitInitializer", "initializer"],
-];
+// ---- units ----
+// kernel: EXACT kit input, byte-for-byte.
+const kernelInput = structuredClone(kitArtifact.standardJsonInput);
+await writeFile(path.join(root, "standard-json-kernel.json"), `${JSON.stringify(kernelInput)}\n`);
+const kernelLocal = structuredClone(kernelInput);
+kernelLocal.settings.outputSelection["*"]["*"] = [...new Set([
+  ...kernelLocal.settings.outputSelection["*"]["*"],
+  "metadata", "evm.bytecode.linkReferences", "evm.deployedBytecode.linkReferences",
+])];
+const kernelOut = JSON.parse(solc.compile(JSON.stringify(kernelLocal)));
+{
+  const errs = (kernelOut.errors ?? []).filter((e) => e.severity === "error");
+  if (errs.length) throw new TypeError("kit kernel input failed: " + errs.map((e) => e.formattedMessage).join("\n"));
+}
+const kernelCompiled =
+  kernelOut.contracts[kitArtifact.kernel.sourcePath][kitArtifact.kernel.contractName];
+await writeFile(path.join(root, "out", "kernel.json"), `${JSON.stringify({
+  abi: kernelCompiled.abi, bytecode: kernelCompiled.evm.bytecode,
+  deployedBytecode: kernelCompiled.evm.deployedBytecode, metadata: kernelCompiled.metadata,
+})}\n`);
+// seed: reviewed native20 unit, copied verbatim from the reference build.
+// A separate augmented in-memory copy adds output selections for local
+// artifact parsing only (submitted bytes stay exact).
+const seedInput = JSON.parse(await readFile(path.join(root, "standard-json-seed.json"), "utf8"));
+const seedLocal = structuredClone(seedInput);
+seedLocal.settings.outputSelection["*"]["*"] = [...new Set([
+  ...seedLocal.settings.outputSelection["*"]["*"],
+  "metadata", "evm.bytecode.linkReferences", "evm.deployedBytecode.linkReferences",
+])];
+const seedOut = JSON.parse(solc.compile(JSON.stringify(seedLocal)));
+{
+  const errs = (seedOut.errors ?? []).filter((e) => e.severity === "error");
+  if (errs.length) throw new TypeError("seed unit failed: " + errs.map((e) => e.formattedMessage).join("\n"));
+}
+const SEED_TOKEN = ["src/RobinhoodNative20Token.sol", "RobinhoodNative20Token"];
+const SEED_INIT = ["src/RobinhoodNative20Initializer.sol", "RobinhoodNative20Initializer"];
+for (const [sp, cn, tid] of [[...SEED_TOKEN, "token"], [...SEED_INIT, "initializer"]]) {
+  const c = seedOut.contracts?.[sp]?.[cn];
+  if (!c?.abi || !c?.evm?.bytecode?.object) throw new TypeError(`seed artifact missing for ${tid}`);
+  await writeFile(path.join(root, "out", `${tid}.json`), `${JSON.stringify({
+    abi: c.abi, bytecode: c.evm.bytecode, deployedBytecode: c.evm.deployedBytecode, metadata: c.metadata,
+  })}\n`);
+}
+// arbit unit: distributor (+ closure) under arbit/ namespace (no key collisions).
+const ARBIT_TARGETS = [["src/ArbitDistributor.sol", "ArbitDistributor", "distributor"]];
 const PREFIX_MAP = {
   "@openzeppelin/contracts/": "lib/openzeppelin-contracts/contracts/",
   "v4-core/": "lib/v4-core/",
@@ -98,7 +127,7 @@ async function vendorFile(repoPath, keyPath) {
       const prefix = Object.keys(PREFIX_MAP).find((p) => spec.startsWith(p));
       if (!prefix) throw new TypeError(`unvendored import prefix in ${repoPath}: ${spec}`);
       depRepo = PREFIX_MAP[prefix] + spec.slice(prefix.length);
-      depKey = depRepo; // lib/** keys match on-disk layout (kit convention)
+      depKey = `arbit/lib/${depRepo.slice(4)}`;
       const rel = path.posix.relative(dir, depKey);
       const relNorm = rel.startsWith(".") ? rel : `./${rel}`;
       content = content.split(`"${spec}"`).join(`"${relNorm}"`);
@@ -108,7 +137,7 @@ async function vendorFile(repoPath, keyPath) {
   }
   sources[keyPath] = { content };
 }
-for (const [rel] of TARGETS) await vendorFile(rel, rel);
+for (const [rel] of ARBIT_TARGETS) await vendorFile(rel, `arbit/${rel}`);
 const arbitInput = {
   language: "Solidity",
   sources,
@@ -126,75 +155,32 @@ const arbitInput = {
     },
   },
 };
-const arbitJsonBytes = Buffer.from(`${JSON.stringify(arbitInput)}\n`, "utf8");
+await writeFile(path.join(root, "standard-json-arbit.json"), `${JSON.stringify(arbitInput)}\n`);
 const arbitOut = JSON.parse(solc.compile(JSON.stringify(arbitInput)));
 {
   const errs = (arbitOut.errors ?? []).filter((e) => e.severity === "error");
   if (errs.length) throw new TypeError(errs.map((e) => e.formattedMessage).join("\n"));
 }
-await mkdir(path.join(root, "out"), { recursive: true });
-await mkdir(path.join(root, "evidence"), { recursive: true });
-await writeFile(path.join(root, "standard-json-arbit.json"), arbitJsonBytes);
-// Mirror the closure to disk (pack/src/**, pack/lib/**) so the CLI's
-// source.paths resolve to real files
-for (const [keyPath, entry] of Object.entries(sources)) {
-  const full = path.join(root, ...keyPath.split("/"));
-  await mkdir(path.dirname(full), { recursive: true });
-  await writeFile(full, entry.content, "utf8");
-}
-for (const [sourcePath, contractName, targetId] of TARGETS) {
-  const c = arbitOut.contracts?.[sourcePath]?.[contractName];
-  if (!c?.abi || !c?.metadata || !c?.evm?.bytecode?.object || !c?.evm?.deployedBytecode?.object) {
-    throw new TypeError(`incomplete compiler output for ${sourcePath}:${contractName}`);
-  }
+for (const [sourcePath, contractName, targetId] of ARBIT_TARGETS) {
+  const c = arbitOut.contracts?.[`arbit/${sourcePath}`]?.[contractName];
+  if (!c?.abi || !c?.evm?.bytecode?.object) throw new TypeError(`arbit artifact missing for ${targetId}`);
   await writeFile(path.join(root, "out", `${targetId}.json`), `${JSON.stringify({
     abi: c.abi, bytecode: c.evm.bytecode, deployedBytecode: c.evm.deployedBytecode, metadata: c.metadata,
   })}\n`);
 }
-// Kernel unit: EXACT kit input, byte-for-byte (reviewed). A separate augmented
-// in-memory copy adds output selections for local artifact parsing only.
-const kernelInput = structuredClone(kitArtifact.standardJsonInput);
-await writeFile(path.join(root, "standard-json-kernel.json"), `${JSON.stringify(kernelInput)}\n`);
-const kernelLocal = structuredClone(kernelInput);
-kernelLocal.settings.outputSelection["*"]["*"] = [...new Set([
-  ...kernelLocal.settings.outputSelection["*"]["*"],
-  "metadata", "evm.bytecode.linkReferences", "evm.deployedBytecode.linkReferences",
-])];
-const kernelOut = JSON.parse(solc.compile(JSON.stringify(kernelLocal)));
-{
-  const errs = (kernelOut.errors ?? []).filter((e) => e.severity === "error");
-  if (errs.length) throw new TypeError("kit kernel input failed to compile: " + errs.map((e) => e.formattedMessage).join("\n"));
+// Mirror both closures to disk (pack/src, pack/lib, pack/arbit/**)
+await mkdir(path.join(root, "out"), { recursive: true });
+await mkdir(path.join(root, "evidence"), { recursive: true });
+for (const [keyPath, entry] of Object.entries({ ...seedInput.sources, ...sources })) {
+  const full = path.join(root, ...keyPath.split("/"));
+  await mkdir(path.dirname(full), { recursive: true });
+  const content = typeof entry === "string" ? entry : entry.content;
+  await writeFile(full, content, "utf8");
 }
-const KERNEL_SRC = kitArtifact.kernel.sourcePath;
-const KERNEL_NAME = kitArtifact.kernel.contractName;
-const kernelCompiled = kernelOut.contracts[KERNEL_SRC][KERNEL_NAME];
-await writeFile(path.join(root, "out", "kernel.json"), `${JSON.stringify({
-  abi: kernelCompiled.abi, bytecode: kernelCompiled.evm.bytecode,
-  deployedBytecode: kernelCompiled.evm.deployedBytecode, metadata: kernelCompiled.metadata,
-})}\n`);
-
-const moduleCodeHash = keccak256(
-  `0x${JSON.parse(await readFile(path.join(root, "out", "module.json"), "utf8")).deployedBytecode.object}`,
-);
-
-// ---- capabilities + permit window + image ----
-const imageBytes = await readFile(path.join(root, ...imageSourcePath.split("/")));
-assertPng(imageBytes);
-const capabilities = await (await fetch(CAPABILITIES_URL)).json();
-const pm = capabilities?.chainDeployment?.contracts?.poolManager?.address;
-const gf = capabilities?.chainDeployment?.contracts?.graphFactory?.address;
-if (pm !== "0x8366a39CC670B4001A1121B8F6A443A643e40951" || !gf) {
-  throw new TypeError("canonical trust-root binding changed — stop and review");
-}
-const [rpcChainId, finBlock] = await Promise.all([
-  rpc("eth_chainId", []),
-  rpc("eth_getBlockByNumber", ["finalized", false]),
-]);
-const permitWindow = permitFromFinalized(rpcChainId, finBlock, Math.floor(Date.parse(capabilities.serverTime) / 1000));
 
 // ---- per-target immutable bindings (AST name-mapped) ----
-function immutablesFor(fileKey, targetId, rules) {
-  const ast = arbitOut.sources?.[fileKey]?.ast;
+function immutablesForSources(compiledSources, fileKey, targetId, rules) {
+  const ast = compiledSources?.[fileKey]?.ast;
   const found = {};
   (function walk(n) {
     if (!n || typeof n !== "object") return;
@@ -215,52 +201,43 @@ function immutablesFor(fileKey, targetId, rules) {
 const T = (target) => ({ target });
 const L = (literal) => ({ literal });
 const W = launchWallet;
-const chainLit = "4663";
-// runtimeImmutables literals must be canonical lowercase (pack-v4 contract)
+function immutablesFor(fileKey, targetId, rules) {
+  return immutablesForSources(arbitOut.sources, fileKey, targetId, rules);
+}
+
+// ---- capabilities + permit window + image ----
+const imageBytes = await readFile(path.join(root, ...imageSourcePath.split("/")));
+assertPng(imageBytes);
+const capabilities = await (await fetch(CAPABILITIES_URL)).json();
+const pm = capabilities?.chainDeployment?.contracts?.poolManager?.address;
+const gf = capabilities?.chainDeployment?.contracts?.graphFactory?.address;
+if (pm !== "0x8366a39CC670B4001A1121B8F6A443A643e40951" || !gf) {
+  throw new TypeError("canonical trust-root binding changed — stop and review");
+}
 const pmL = pm.toLowerCase();
 const gfL = gf.toLowerCase();
 const WL = W.toLowerCase();
-const targetRules = {
-  token: [],
-  registry: immutablesFor("src/ArbitRegistry.sol", "registry", {
-    arbitToken: T("token"), initializer: T("initializer"),
-  }),
-  module: immutablesFor("src/ArbitFeeModule.sol", "module", {
-    registry: T("registry"),
-  }),
-  distributor: immutablesFor("src/ArbitDistributor.sol", "distributor", {
-    manager: L(pmL), arbitToken: T("token"), keeper: L(WL),
-  }),
-  initializer: immutablesFor("src/ArbitInitializer.sol", "initializer", {
-    manager: L(pmL), graphFactory: L(gfL), wallet: L(WL), chainId: L(chainLit),
-  }),
-};
+const [rpcChainId, finBlock] = await Promise.all([
+  rpc("eth_chainId", []),
+  rpc("eth_getBlockByNumber", ["finalized", false]),
+]);
+const permitWindow = permitFromFinalized(rpcChainId, finBlock, Math.floor(Date.parse(capabilities.serverTime) / 1000));
 
 // ---- config ----
-const totalValue = (BigInt(buyWei) + BigInt(lpEthWei)).toString();
 const ZERO = "0x0000000000000000000000000000000000000000";
 const ZERO32 = `0x${"00".repeat(32)}`;
-// ARBIT_ZERO_MODULE=1: kernel module slot ZEROed (isolates whether the custom
-// module triggers server 500s; everything else identical)
-const ZERO_MODULE = process.env.ARBIT_ZERO_MODULE === "1";
-const kernelPoolConfig = [
-  T("token"), 8388608, 60, startSqrtPrice, T("initializer"), W,
-  creatorBuyBps, creatorSellBps, ZERO_MODULE ? ZERO : T("module"), ZERO_MODULE ? "0" : 10000,
-];
-// Initial kernel immutable coverage with a ZERO vault placeholder (structurally
-// complete so the first prediction pass runs); rewritten with the derived
-// vault below, exactly like the native20 example.
+const FIXED_PRICE = "1747735933952748037356115466503453";
+const totalValue = buyWei; // buyer-funded: only the atomic first buy carries value
 function kernelImmutables(feeVault) {
   // NOTE: helper takes the RAW solc contract output (evm nesting), not the
   // flattened out/*.json artifact shape.
   return createRobinhoodNativeFeeRuntimeImmutablesV1(
     kernelCompiled,
     {
-    poolManager: pmL, token: T("token"), lpFee: "8388608", tickSpacing: "60",
-    initialSqrtPriceX96: startSqrtPrice, initializer: T("initializer"),
-    creatorBuyFeeBps: creatorBuyBps, creatorSellFeeBps: creatorSellBps,
-    module: ZERO_MODULE ? ZERO : T("module"), moduleCodeHash: ZERO_MODULE ? ZERO32 : moduleCodeHash,
-    maxModuleLpFeePips: ZERO_MODULE ? "0" : "10000", feeVault,
+      poolManager: pmL, token: T("token"), lpFee: "0", tickSpacing: "60",
+      initialSqrtPriceX96: FIXED_PRICE, initializer: T("initializer"),
+      creatorBuyFeeBps: creatorBuyBps, creatorSellFeeBps: creatorSellBps, module: ZERO,
+      moduleCodeHash: ZERO32, maxModuleLpFeePips: "0", feeVault,
     },
   );
 }
@@ -276,84 +253,58 @@ const config = {
   permitWindow,
   source: {
     root: ".",
-    paths: ["src", "lib"],
+    paths: ["src", "lib", "arbit/src", "arbit/lib"],
     sourceLineageNonce: "1",
     publicOrigin: { url: new URL(sourceOrigin).href, revision: sourceRevision },
   },
   compilationUnits: [
     { compilationUnitId: "kernel", standardJson: "standard-json-kernel.json" },
+    { compilationUnitId: "seed", standardJson: "standard-json-seed.json" },
     { compilationUnitId: "arbit", standardJson: "standard-json-arbit.json" },
   ],
   targets: [
     {
-      targetId: "token", compilationUnitId: "arbit", artifact: "out/token.json",
-      applicantSalt: `0x${"11".repeat(32)}`,
-      constructorArguments: [W],
+      targetId: "token", compilationUnitId: "seed", artifact: "out/token.json",
+      applicantSalt: `0x${"02".repeat(32)}`,
+      constructorArguments: [{ target: "initializer" }, tokenName, tokenSymbol],
       initializer: null, deploymentValueWei: "0", initializerValueWei: "0",
-      componentKind: "token", declaredHookPermissions: null,
-      runtimeImmutables: targetRules.token,
-    },
-    {
-      targetId: "registry", compilationUnitId: "arbit", artifact: "out/registry.json",
-      applicantSalt: `0x${"22".repeat(32)}`,
-      constructorArguments: [T("token"), T("initializer"), W],
-      initializer: null, deploymentValueWei: "0", initializerValueWei: "0",
-      componentKind: "other", declaredHookPermissions: null,
-      runtimeImmutables: targetRules.registry,
-    },
-    {
-      targetId: "module", compilationUnitId: "arbit", artifact: "out/module.json",
-      applicantSalt: `0x${"33".repeat(32)}`,
-      constructorArguments: [T("registry")],
-      initializer: null, deploymentValueWei: "0", initializerValueWei: "0",
-      componentKind: "other", declaredHookPermissions: null,
-      runtimeImmutables: targetRules.module,
-    },
-    {
-      targetId: "distributor", compilationUnitId: "arbit", artifact: "out/distributor.json",
-      applicantSalt: `0x${"44".repeat(32)}`,
-      constructorArguments: [pm, T("token"), W, W],
-      initializer: null, deploymentValueWei: "0", initializerValueWei: "0",
-      componentKind: "other", declaredHookPermissions: null,
-      runtimeImmutables: targetRules.distributor,
+      componentKind: "token", declaredHookPermissions: null, runtimeImmutables: [],
     },
     {
       targetId: "hook", compilationUnitId: "kernel", artifact: "out/kernel.json",
       applicantSalt: { mode: "deterministic-hook-permission-grind-v1", start: "0", maxAttempts: "262144" },
-      constructorArguments: [pm, kernelPoolConfig],
+      constructorArguments: [pm, [{ target: "token" }, 0, 60, FIXED_PRICE, { target: "initializer" }, W, creatorBuyBps, creatorSellBps, ZERO, 0]],
       initializer: null, deploymentValueWei: "0", initializerValueWei: "0",
       componentKind: "hook", declaredHookPermissions: [...ROBINHOOD_NATIVE_FEE_PERMISSIONS_V1],
-      runtimeImmutables: kernelImmutables(ZERO), // rewritten with derived vault below
+      runtimeImmutables: kernelImmutables(ZERO),
     },
     {
-      targetId: "initializer", compilationUnitId: "arbit", artifact: "out/initializer.json",
-      applicantSalt: `0x${"55".repeat(32)}`,
-      constructorArguments: [pm, gf, W, 4663],
+      targetId: "initializer", compilationUnitId: "seed", artifact: "out/initializer.json",
+      applicantSalt: `0x${"01".repeat(32)}`,
+      constructorArguments: [pm, gf],
       initializer: {
         function: "initialize",
-        arguments: [{
-          registry: T("registry"),
-          hook: T("hook"),
-          token: T("token"),
-          hookFund: hookFundArbt,
-          seedAmount: seedArbt,
-          buyAmount: buyWei,
-          fee: 8388608,
-          tickSpacing: 60,
-          sqrtPrice: startSqrtPrice,
-          tickLower: -600,
-          tickUpper: 600,
-          liquidityDelta: "100000000000000000000",
-          minTokensOut,
-        }],
+        arguments: [{ target: "token" }, { target: "hook" }, W, minTokensOut],
       },
-      deploymentValueWei: "0", initializerValueWei: totalValue,
+      deploymentValueWei: "0", initializerValueWei: buyWei,
       componentKind: "other", declaredHookPermissions: null,
-      runtimeImmutables: targetRules.initializer,
+      runtimeImmutables: immutablesForSources(seedOut.sources, "src/RobinhoodNative20Initializer.sol", "initializer", {
+        poolManager: L(pm.toLowerCase()), graphFactory: L(gf.toLowerCase()),
+      }),
+    },
+    {
+      targetId: "distributor", compilationUnitId: "arbit", artifact: "out/distributor.json",
+      applicantSalt: `0x${"44".repeat(32)}`,
+      constructorArguments: [pm, { target: "token" }, W, W],
+      initializer: null, deploymentValueWei: "0", initializerValueWei: "0",
+      componentKind: "other", declaredHookPermissions: null,
+      runtimeImmutables: immutablesFor("arbit/src/ArbitDistributor.sol", "distributor", {
+        manager: L(pmL), arbitToken: T("token"), keeper: L(WL),
+      }),
     },
   ],
   pool: {
-    tokenTargetId: "token", hookTargetId: "hook", fee: 8388608, tickSpacing: 60,
+    tokenTargetId: "token", hookTargetId: "hook", fee: 0, tickSpacing: 60,
     quoteCurrency: "0x0000000000000000000000000000000000000000",
   },
   projectMetadata: {
@@ -365,15 +316,15 @@ const config = {
       links: [{ kind: "website", uri: websiteUrl }, { kind: "x", uri: xUrl }],
     },
   },
-  funding: { schemaVersion: "programmable.custom-launch-funding-intent.v2", mode: "wallet-transaction-value", valueWei: totalValue },
+  funding: { schemaVersion: "programmable.custom-launch-funding-intent.v2", mode: "wallet-transaction-value", valueWei: buyWei },
   fundingPlan: {
     schemaVersion: "programmable.robinhood-funding-plan.v1",
-    capitalSource: "creator-funded",
+    capitalSource: "buyer-funded",
     pricingModel: "concentrated-liquidity",
     nativeAllocations: {
-      initialLiquidityWei: lpEthWei, initialBuyWei: buyWei, reserveWei: "0", otherLaunchValueWei: "0",
+      initialLiquidityWei: "0", initialBuyWei: buyWei, reserveWei: "0", otherLaunchValueWei: "0",
     },
-    maxLaunchValueWei: totalValue,
+    maxLaunchValueWei: buyWei,
     maxGasCostWei: process.env.PROGRAMMABLE_MAX_GAS_WEI ?? maxGasWei,
     launchMode: "fund-and-launch",
   },
@@ -399,11 +350,13 @@ await writeFile(path.join(root, "evidence", "build.json"), `${JSON.stringify({
 const configPath = path.join(root, "programmable-launch.config.json");
 await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`);
 
-// ---- two-pass vault binding (mirror native20): predict hook, derive vault
-// (CREATE nonce 1), rewrite kernel runtimeImmutables, rebuild, re-assert ----
+// ---- two-pass vault binding: predict hook, derive vault, rewrite, rebuild ----
+const { getContractAddress } = await import(
+  pathToFileURL(path.join(cliPkgDir, "node_modules", "viem", "_esm", "index.js")).href
+);
 const first = await buildLaunch({ configPath });
 const hookAddr = first.predictions.find((p) => p.targetId === "hook").predictedAddress;
-const vaultAddr = createAddress(hookAddr, 1n);
+const vaultAddr = getContractAddress({ from: hookAddr, nonce: 1n });
 config.targets.find((t) => t.targetId === "hook").runtimeImmutables =
   kernelImmutables(vaultAddr);
 await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`);
@@ -414,13 +367,7 @@ if (built.predictions.find((p) => p.targetId === "hook").predictedAddress !== ho
 process.stdout.write(`PREDICTED hook=${hookAddr} vault=${vaultAddr}\n`);
 process.stdout.write(`Wrote capability-bound programmable-launch.config.json${DRYRUN ? " (DRYRUN values)" : ""}; no signing or broadcast performed.\n`);
 
-
-// CREATE nonce-address via the CLI's own pinned viem (exact keccak semantics)
-function createAddress(from, nonce) {
-  return getContractAddress({ from, nonce });
-}
-
-// ---- helpers (same contracts as v1 builder) ----
+// ---- helpers ----
 function req(n, re) {
   const v = process.env[n];
   if (typeof v !== "string" || v.length === 0 || (re && !re.test(v))) throw new TypeError(`${n} missing/invalid`);
