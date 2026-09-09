@@ -109,10 +109,16 @@ contract ArbitDistributor is Ownable, ReentrancyGuard, IUnlockCallback {
         uint256 claimed = vault.claimCreator();
         emit CreatorClaimed(claimed);
 
+        // Split applies to the CLAIM (not the full balance): prior runs leave
+        // retained reserves behind, and re-splitting them would overstate the
+        // victim pool past actual holdings (review finding Sep 8). Invariant
+        // victimPool ≤ balance holds inductively: buyIn spends only the
+        // unreserved remainder.
+        uint256 reserveAdd = (claimed * VICTIM_SHARE) / 100;
+        victimPool += reserveAdd;
         uint256 bal = address(this).balance;
         require(bal >= MIN_BUYBACK_ETH, "Below threshold");
-        uint256 buyIn = (bal * (100 - VICTIM_SHARE)) / 100;
-        victimPool += bal - buyIn;
+        uint256 buyIn = bal - victimPool;
 
         uint256 arbtOut = abi.decode(
             manager.unlock(abi.encodeCall(this._buy, (buyIn, minTokensOut))), (uint256)

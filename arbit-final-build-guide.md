@@ -718,6 +718,11 @@ immutable token/registry refs. Remaining lows triaged benign and documented here
 | 17 | Badge holder halving + claim-once flags | `test/Badge.t.sol` (6 tests): tiers, double-claim, auth, discount event, transfer-keeps-perk |
 | 18 | Distributor keeper-gating + minOut sandwich surface | ACCEPTED — keeper runs buys off fresh quotes (owner-managed key); permissionless TWAP execution is post-hackathon. `test/Distributor.t.sol` (5 tests) + fork money-loop proof |
 | 19 | Registry keeper role (reward/slash without hook) | ACCEPTED centralization for module path — owner-managed, disclosed; hook path unchanged |
+| 20 | REVIEW (Sep 8, external): poke-gigagas overflow bricks pricing (DoS) | FIXED critical — `_isBot` uses division (`gasPrice/3 > avg`), overflow impossible; `test_Review_PokeCannotBrickPricing` |
+| 21 | REVIEW: multi-agent reward overcommit | FIXED — global `totalPromised` cap vs backing; claims release commitments; `test_Review_MultiAgentBackingHolds` |
+| 22 | REVIEW: burn consumes promised rewards | FIXED — burns reserve `victimPool + totalPromised` first; `test_Review_BurnPreservesPromises` |
+| 23 | REVIEW: distributor victim over-accounting | FIXED — 80/20 split applies to claimed amounts only, invariant `victimPool ≤ balance` holds inductively; `test_Review_VictimReserveStaysSolvent` |
+| 24 | REVIEW: hookData attribution for others | BY DESIGN (standard v4 router pattern) — rewards no-op for inactive agents; pinned in test, no code change |
 
 NOT covered by this audit (state explicitly): economic soundness of fee levels, oracle/TWAP design (doesn't
 exist yet), the Programmable graph/pack layer, offchain demo scripts, upgrade story (none — immutable by design).

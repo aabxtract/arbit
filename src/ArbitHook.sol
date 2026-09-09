@@ -69,8 +69,11 @@ contract ArbitHook is IHooks, ReentrancyGuard, Ownable {
     uint256 public constant STOCK_FEE_NUM = 2; // stock fee = base * 2/3
     uint256 public constant STOCK_FEE_DEN = 3; // (30→20, 15→10, 5→3, 100→66)
 
-    // Pending rewards for agents — claimed separately (pull pattern)
+    // Pending rewards for agents — claimed separately (pull pattern).
+    // totalPromised bounds ALL outstanding claims against backing so N agents
+    // can never promise more than the hook holds (review finding Sep 8).
     mapping(address => uint256) public pendingRewards;
+    uint256 public totalPromised;
 
     // Single-classify cache: beforeSwap result reused by afterSwap, then cleared.
     // Both base and charged fees are cached: charged (discounted) is what the
@@ -280,16 +283,23 @@ contract ArbitHook is IHooks, ReentrancyGuard, Ownable {
             // Stock edge applies BEFORE the backing cap (cap still protects solvency)
             rewardAmount = _applyStockBoost(key, trader, rewardAmount);
 
-            // EFFECT — queue reward, capped by the hook's real ARBT balance
-            // (minus victim earmark) so pendingRewards never promises what
-            // claimReward cannot pay.
+            // EFFECT — queue reward, globally capped: this trader's new total
+            // plus everyone else's outstanding claims must fit backing
+            // (hook balance minus victim earmark). Fixes multi-agent
+            // overcommit (review finding Sep 8: per-trader caps summed past backing).
             uint256 hookBal = IERC20(arbitToken).balanceOf(address(this));
-            uint256 maxNew = hookBal > victimPool ? hookBal - victimPool : 0;
-            if (pendingRewards[trader] + rewardAmount > maxNew) {
-                rewardAmount =
-                    maxNew > pendingRewards[trader] ? maxNew - pendingRewards[trader] : 0;
+            uint256 othersPromised = totalPromised - pendingRewards[trader];
+            uint256 budget = hookBal > victimPool + othersPromised
+                ? hookBal - victimPool - othersPromised
+                : 0;
+            // budget = max this trader may now hold (incl. existing accrual)
+            if (pendingRewards[trader] + rewardAmount > budget) {
+                rewardAmount = budget > pendingRewards[trader]
+                    ? budget - pendingRewards[trader]
+                    : 0;
             }
             pendingRewards[trader] += rewardAmount;
+            totalPromised += rewardAmount;
             registry.reward(trader);
 
             emit AgentRewarded(trader, rewardAmount);
@@ -322,7 +332,11 @@ contract ArbitHook is IHooks, ReentrancyGuard, Ownable {
     /// PoolManager swap in MVP — no oracle/TWAP dependency by design.
     function _executeBuyback() internal {
         uint256 held = IERC20(arbitToken).balanceOf(address(this));
-        uint256 amount = buybackPool > held ? held : buybackPool;
+        // Never burn promised funds: rewards + victim earmarks are senior to
+        // burns (review finding Sep 8 — burns previously consumed backing).
+        uint256 reserved = victimPool + totalPromised;
+        uint256 spendable = held > reserved ? held - reserved : 0;
+        uint256 amount = buybackPool > spendable ? spendable : buybackPool;
         if (amount == 0) return;
 
         // EFFECT — update before any external call
@@ -340,8 +354,9 @@ contract ArbitHook is IHooks, ReentrancyGuard, Ownable {
         uint256 reward = pendingRewards[msg.sender];
         require(reward > 0, "No pending reward");
 
-        // EFFECT — zero before transfer
+        // EFFECT — zero before transfer; release the global commitment too
         pendingRewards[msg.sender] = 0;
+        totalPromised -= reward;
 
         // INTERACTION
         IERC20(arbitToken).safeTransfer(msg.sender, reward);

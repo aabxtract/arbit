@@ -167,7 +167,11 @@ contract ArbitRegistry is Ownable, ReentrancyGuard {
     {
         bool highFreq =
             pattern.swapsInWindow >= 3 && block.number <= pattern.lastSwapBlock + 10;
-        bool gasSpike = pattern.avgGasPrice > 0 && gasPrice > pattern.avgGasPrice * 3;
+        // Division (not avg*3) — multiplication can overflow after a hostile
+        // poke() with extreme gas values, bricking previewFee/classify for
+        // the victim (review finding Sep 8, critical DoS). Semantics equal
+        // within 3 wei, which is noise at gas-price magnitudes.
+        bool gasSpike = pattern.avgGasPrice > 0 && gasPrice / 3 > pattern.avgGasPrice;
         return highFreq || gasSpike;
     }
 
