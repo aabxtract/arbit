@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {IERC20} from "./vendor/lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "./vendor/lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import {IUnlockCallback} from "./vendor/lib/v4-core/src/interfaces/callback/IUnlockCallback.sol";
-import {IPoolManager} from "./vendor/lib/v4-core/src/interfaces/IPoolManager.sol";
-import {PoolKey} from "./vendor/lib/v4-core/src/types/PoolKey.sol";
-import {PoolId, PoolIdLibrary} from "./vendor/lib/v4-core/src/types/PoolId.sol";
-import {BalanceDelta} from "./vendor/lib/v4-core/src/types/BalanceDelta.sol";
-import {Currency} from "./vendor/lib/v4-core/src/types/Currency.sol";
-import {ModifyLiquidityParams, SwapParams} from "./vendor/lib/v4-core/src/types/PoolOperation.sol";
-import {TickMath} from "./vendor/lib/v4-core/src/libraries/TickMath.sol";
-import {IHooks} from "./vendor/lib/v4-core/src/interfaces/IHooks.sol";
+import {IERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IUnlockCallback} from "../lib/v4-core/src/interfaces/callback/IUnlockCallback.sol";
+import {IPoolManager} from "../lib/v4-core/src/interfaces/IPoolManager.sol";
+import {PoolKey} from "../lib/v4-core/src/types/PoolKey.sol";
+import {PoolId, PoolIdLibrary} from "../lib/v4-core/src/types/PoolId.sol";
+import {BalanceDelta} from "../lib/v4-core/src/types/BalanceDelta.sol";
+import {Currency} from "../lib/v4-core/src/types/Currency.sol";
+import {ModifyLiquidityParams, SwapParams} from "../lib/v4-core/src/types/PoolOperation.sol";
+import {TickMath} from "../lib/v4-core/src/libraries/TickMath.sol";
+import {IHooks} from "../lib/v4-core/src/interfaces/IHooks.sol";
 import {ArbitRegistry} from "./ArbitRegistry.sol";
 
 /// @title ArbitInitializer

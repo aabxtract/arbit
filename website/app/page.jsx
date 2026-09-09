@@ -13,7 +13,65 @@ import {
 } from "../lib/contracts";
 import { BackgroundRippleEffect } from "../components/ui/background-ripple-effect";
 
+const FAQ_ITEMS = [
+  {
+    q: "How is Arbit different from a normal pool?",
+    a: "Arbit still gives traders and LPs the familiar Uniswap v4 experience. The difference is the hook around the pool: it classifies swaps, applies participant-specific fees, tracks bot behavior, routes fees, and executes buybacks according to onchain rules."
+  },
+  {
+    q: "Do I need to register before trading?",
+    a: "No. Anyone can trade an allowlisted pool without registration, an account, or an Arbit identity."
+  },
+  {
+    q: "Can I add liquidity?",
+    a: "Yes. LPs can add and remove liquidity normally. The hook does not block liquidity providers."
+  },
+  {
+    q: "What fee do normal traders pay?",
+    a: "Human traders pay 0.30%. 80% goes to LPs and 20% goes to the buyback pool."
+  },
+  {
+    q: "What do registered agents get?",
+    a: "Agents stake 100 ARBT to register and start with 500 reputation. Their fee can range from 0.05%–0.30% based on reputation, and they can claim accrued ARBT rewards."
+  },
+  {
+    q: "How does Arbit deal with bots?",
+    a: "Arbit tracks frequency and gas patterns across swaps. Detected bot behavior is charged the 1.00% bot fee, with 60% going to the victim fund and 40% going toward buyback and burn."
+  },
+  {
+    q: "Am I guaranteed protection from MEV?",
+    a: "No. One-shot attackers can slip through before patterns confirm. Arbit's protection comes from its detection and fee mechanism, with the victim fund providing a response mechanism for detected attacks."
+  },
+  {
+    q: "What happens to the victim fund?",
+    a: "The victim fund receives 60% of the bot surcharge. Governance can release compensation to victims from that fund."
+  },
+  {
+    q: "What makes ARBT go up?",
+    a: "Nothing in Arbit guarantees an increase in ARBT's price. The protocol uses defined trading fees to fund buybacks, and ARBT bought through the mechanism is burned when the threshold and cooldown conditions are met."
+  },
+  {
+    q: "Can agents withdraw their stake?",
+    a: "Yes. Agents can exit through the registry path and retrieve their stake. Check the current contract and documentation for the exact rules around any slashing design."
+  },
+  {
+    q: "What are stock pools?",
+    a: "They are pools flagged by governance for tokenized stocks such as AAPL and TSLA paired with USDG. Flagged pools use ⅔ fees and 1.5× buyback accrual."
+  },
+  {
+    q: "What can governance change?",
+    a: "The owner/governance address can allowlist pools, flag stock pools, pay victims from the victim fund, and perform the one-time contract wiring required by the system."
+  },
+  {
+    q: "Can the owner take LP funds?",
+    a: "No. The owner cannot touch LP funds. The relevant administrative permissions are separate from custody of LP liquidity."
+  }
+];
+
 export default function ArbitDappPage() {
+  // FAQ Accordion State
+  const [openFaq, setOpenFaq] = useState(null);
+
   // Wallet State
   const [account, setAccount] = useState(null);
   const [chainId, setChainId] = useState(null);
@@ -60,6 +118,62 @@ export default function ArbitDappPage() {
   const [copiedKey, setCopiedKey] = useState(null);
   const [badgeBusyTier, setBadgeBusyTier] = useState(null);
   const [rewardBusy, setRewardBusy] = useState(false);
+
+  // Expandable Lane Cards State
+  const [expandedLane, setExpandedLane] = useState(null);
+
+  const toggleLane = (laneIdx) => {
+    setExpandedLane((prev) => (prev === laneIdx ? null : laneIdx));
+  };
+
+  // Carousel State & Swipe / Drag Handlers
+  const [carouselIndex, setCarouselIndex] = useState(0);
+  const [dragStartX, setDragStartX] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const TOTAL_CARDS = 6;
+  const handlePrevCard = useCallback(() => setCarouselIndex((prev) => (prev === 0 ? TOTAL_CARDS - 1 : prev - 1)), []);
+  const handleNextCard = useCallback(() => setCarouselIndex((prev) => (prev === TOTAL_CARDS - 1 ? 0 : prev + 1)), []);
+
+  // Returns CSS class for carousel card positioning relative to the active index
+  const getCardClass = (cardIdx) => {
+    if (cardIdx === carouselIndex) return "active";
+    const diff = (cardIdx - carouselIndex + TOTAL_CARDS) % TOTAL_CARDS;
+    if (diff === 1) return "next";
+    if (diff === TOTAL_CARDS - 1) return "prev";
+    return "hidden";
+  };
+
+  const handleTouchStart = (e) => {
+    setDragStartX(e.touches[0].clientX);
+  };
+
+  const handleTouchEnd = (e) => {
+    if (dragStartX === null) return;
+    const endX = e.changedTouches[0].clientX;
+    const diff = dragStartX - endX;
+    if (Math.abs(diff) > 35) {
+      if (diff > 0) handleNextCard();
+      else handlePrevCard();
+    }
+    setDragStartX(null);
+  };
+
+  const handleMouseDown = (e) => {
+    setIsDragging(true);
+    setDragStartX(e.clientX);
+  };
+
+  const handleMouseUp = (e) => {
+    if (!isDragging || dragStartX === null) return;
+    setIsDragging(false);
+    const diff = dragStartX - e.clientX;
+    if (Math.abs(diff) > 35) {
+      if (diff > 0) handleNextCard();
+      else handlePrevCard();
+    }
+    setDragStartX(null);
+  };
 
   // ── 1. Fetch live onchain hook state ──────────────────────────────
   const loadHookData = useCallback(async () => {
@@ -335,10 +449,10 @@ export default function ArbitDappPage() {
         <div className="navbar-inner">
           <div className="nav-links">
             <a href="#overview" className="nav-link">Overview</a>
+            <a href="#how-it-works" className="nav-link">How It Works</a>
+            <a href="#whats-in-the-bag" className="nav-link">Whats In The Bag</a>
             <a href="#lanes" className="nav-link">Participant Lanes</a>
-            <a href="#stock-pools" className="nav-link">Stock Edge</a>
-            <a href="#badges" className="nav-link">Badges</a>
-            <a href="#register" className="nav-link">Register Agent</a>
+            <a href="#faq" className="nav-link">FAQ</a>
           </div>
 
           <div className="nav-actions">
@@ -388,8 +502,348 @@ export default function ArbitDappPage() {
         </div>
       </header>
 
-      {/* ── Main Container for Sections ────────────────────────────── */}
+      {/* ── Section: How Arbit Works (Full Width Screen Background & Side Watermark) ─ */}
+      <section className="section-how-it-works" id="how-it-works">
+        {/* Background Watermark Logo (10% opacity, big size, half off-screen) */}
+        <img
+          src="/arbit-logo-black-transparent.png"
+          alt=""
+          className="section-watermark"
+        />
+
+        <div className="page-container relative z-10">
+          <div className="section-header">
+            <div className="section-tag">HOW ARBIT WORKS</div>
+            <h2 className="section-title">You trade. Arbit manages the incentives.</h2>
+            <p className="section-desc">
+              There are only two things a normal trader needs to do.
+            </p>
+          </div>
+
+          {/* Cards Grid */}
+          <div className="glass-grid">
+            {/* Card: Swap */}
+            <div className="glass-card">
+              <h3 className="glass-card-title">Swap</h3>
+              <p className="glass-card-text">
+                Trade ARBT/ETH or any other allowlisted pool.
+              </p>
+              <div className="glass-card-highlight">
+                <span>Exact-input and exact-output swaps are supported in both directions.</span>
+              </div>
+            </div>
+
+            {/* Card: Provide liquidity */}
+            <div className="glass-card">
+              <h3 className="glass-card-title">Provide liquidity</h3>
+              <p className="glass-card-text">
+                Add or remove liquidity like a normal Uniswap v4 pool.
+              </p>
+              <div className="glass-card-highlight">
+                <span>The hook never blocks LPs.</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Arbit Automatically Glass Box */}
+          <div className="glass-auto-container">
+            <div className="glass-auto-header">
+              <span className="glass-auto-header-icon"></span>
+              <span>Arbit automatically:</span>
+            </div>
+
+            <div className="glass-auto-grid">
+              <div className="auto-feature-card">
+                <span className="feature-check-icon">✓</span>
+                <span className="feature-text">Classifies swaps as human, agent, or bot</span>
+              </div>
+
+              <div className="auto-feature-card">
+                <span className="feature-check-icon">✓</span>
+                <span className="feature-text">Applies the appropriate fee</span>
+              </div>
+
+              <div className="auto-feature-card">
+                <span className="feature-check-icon">✓</span>
+                <span className="feature-text">Routes fees to LPs, buybacks, the victim fund, and agent rewards</span>
+              </div>
+
+              <div className="auto-feature-card">
+                <span className="feature-check-icon">✓</span>
+                <span className="feature-text">Tracks bot behavior using swap frequency and gas patterns</span>
+              </div>
+
+              <div className="auto-feature-card">
+                <span className="feature-check-icon">✓</span>
+                <span className="feature-text">Buys and burns ARBT when the threshold and cooldown are met</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Main Container for Remaining Sections ────────────────────────── */}
       <main className="page-container">
+        {/* ── Carousel Section: WHATS IN THE BAG ───────────────────── */}
+        <section className="section" id="whats-in-the-bag">
+          <div className="section-header">
+            <div className="section-tag">WHATS IN THE BAG</div>
+            <h2 className="section-title">Value & Protection Overview</h2>
+            <p className="section-desc">
+              Explore how protocol mechanics reward honest volume, protect traders from MEV, and incentivize agents.
+            </p>
+          </div>
+
+          <div
+            className="carousel-wrapper"
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+            onMouseDown={handleMouseDown}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+          >
+            <div className="carousel-stage">
+              {/* Card 0: FOR TRADERS */}
+              <div
+                className={`carousel-card ${getCardClass(0)}`}
+                onClick={() => setCarouselIndex(0)}
+              >
+                <div className="carousel-card-tag">FOR TRADERS</div>
+                <h3 className="carousel-card-title">Trade normally.</h3>
+                <p className="carousel-card-sub">
+                  Connect your wallet and swap with no account or registration.
+                </p>
+
+                <div className="carousel-box">
+                  <div className="carousel-box-row">
+                    <span style={{ color: "var(--text-muted)" }}>Human fee</span>
+                    <span className="text-electric" style={{ fontWeight: 700 }}>0.30%</span>
+                  </div>
+                  <div className="carousel-box-row" style={{ paddingLeft: 12, fontSize: 12 }}>
+                    <span>80%</span>
+                    <span style={{ color: "var(--text-secondary)" }}>→ LPs</span>
+                  </div>
+                  <div className="carousel-box-row" style={{ paddingLeft: 12, fontSize: 12 }}>
+                    <span>20%</span>
+                    <span style={{ color: "var(--text-secondary)" }}>→ Buyback</span>
+                  </div>
+
+                  <div className="carousel-box-divider"></div>
+
+                  <div className="carousel-box-row" style={{ color: "#ef4444" }}>
+                    <span>Detected bot activity fee</span>
+                    <span style={{ fontWeight: 700 }}>1.00%</span>
+                  </div>
+                  <div className="carousel-box-row" style={{ paddingLeft: 12, fontSize: 12 }}>
+                    <span>60%</span>
+                    <span style={{ color: "var(--text-secondary)" }}>→ Victim fund</span>
+                  </div>
+                  <div className="carousel-box-row" style={{ paddingLeft: 12, fontSize: 12 }}>
+                    <span>40%</span>
+                    <span style={{ color: "var(--text-secondary)" }}>→ Buyback + burn</span>
+                  </div>
+                </div>
+
+                <div className="carousel-footer-note">
+                  Simple trading. Stronger incentives.
+                </div>
+              </div>
+
+              {/* Card 1: MEV PROTECTION */}
+              <div
+                className={`carousel-card ${getCardClass(1)}`}
+                onClick={() => setCarouselIndex(1)}
+              >
+                <div className="carousel-card-tag">MEV PROTECTION</div>
+                <h3 className="carousel-card-title">Detected extraction pays back into the system.</h3>
+                <p className="carousel-card-sub">
+                  Arbit monitors trading patterns and charges detected bot activity a 1.00% fee.
+                </p>
+
+                <div className="carousel-box">
+                  <div style={{ marginBottom: 8, fontWeight: 600, color: "#FFFFFF" }}>That fee supports:</div>
+                  <div className="carousel-box-row" style={{ paddingLeft: 8 }}>
+                    <span>• Victim compensation</span>
+                  </div>
+                  <div className="carousel-box-row" style={{ paddingLeft: 8 }}>
+                    <span>• ARBT buybacks and burns</span>
+                  </div>
+                </div>
+
+                <div className="carousel-footer-note">
+                  Detection is not guaranteed for every attack. The mechanism is designed to make detected extraction more expensive and useful to the ecosystem.
+                </div>
+              </div>
+
+              {/* Card 2: FOR AGENTS */}
+              <div
+                className={`carousel-card ${getCardClass(2)}`}
+                onClick={() => setCarouselIndex(2)}
+              >
+                <div className="carousel-card-tag">FOR AGENTS</div>
+                <h3 className="carousel-card-title">Trade with better fees and earn rewards.</h3>
+                <p className="carousel-card-sub">
+                  Register by staking 100 ARBT and receive:
+                </p>
+
+                <div className="carousel-box">
+                  <div className="carousel-box-row" style={{ paddingLeft: 4 }}>
+                    <span>• Onchain identity</span>
+                  </div>
+                  <div className="carousel-box-row" style={{ paddingLeft: 4 }}>
+                    <span>• 500 starting reputation</span>
+                  </div>
+                  <div className="carousel-box-row" style={{ paddingLeft: 4 }}>
+                    <span>• Fees from 0.05%–0.30%</span>
+                  </div>
+                  <div className="carousel-box-row" style={{ paddingLeft: 4 }}>
+                    <span>• ARBT rewards</span>
+                  </div>
+                </div>
+
+                <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 16 }}>
+                  Trade cleanly to build reputation and unlock better fee tiers.
+                </div>
+
+                <div className="carousel-box-row" style={{ background: "rgba(1, 110, 254, 0.15)", padding: "10px 14px", borderRadius: 8, border: "1px solid rgba(1, 110, 254, 0.3)" }}>
+                  <span className="mono" style={{ fontSize: 12, color: "var(--accent-blue)" }}>Stake → Register → Trade → Earn</span>
+                  <a href={CONFIG.DOCS_URL} target="_blank" rel="noreferrer" className="text-electric" style={{ fontSize: 12, textDecoration: "none", fontWeight: 600 }}>
+                    Read the agent docs →
+                  </a>
+                </div>
+              </div>
+
+              {/* Card 3: FOR LIQUIDITY PROVIDERS */}
+              <div
+                className={`carousel-card ${getCardClass(3)}`}
+                onClick={() => setCarouselIndex(3)}
+              >
+                <div className="carousel-card-tag">FOR LIQUIDITY PROVIDERS</div>
+                <h3 className="carousel-card-title">Earn from trading activity.</h3>
+                <p className="carousel-card-sub">
+                  Provide liquidity as usual and earn from trading fees, while bot surcharges also support the victim fund and ARBT buybacks.
+                </p>
+
+                <div className="carousel-box">
+                  <div style={{ marginBottom: 8, fontWeight: 600, color: "#FFFFFF" }}>Your LP earnings come from:</div>
+                  <div className="carousel-box-row" style={{ paddingLeft: 8 }}>
+                    <span>• 80% of human swap fees</span>
+                  </div>
+                  <div className="carousel-box-row" style={{ paddingLeft: 8 }}>
+                    <span>• Standard Uniswap v4 fee accrual</span>
+                  </div>
+
+                  <div className="carousel-box-divider"></div>
+
+                  <div style={{ marginBottom: 8, fontWeight: 600, color: "#FFFFFF" }}>Bot surcharges fund:</div>
+                  <div className="carousel-box-row" style={{ paddingLeft: 8 }}>
+                    <span>• Victim compensation pool</span>
+                  </div>
+                  <div className="carousel-box-row" style={{ paddingLeft: 8 }}>
+                    <span>• ARBT buyback + burn engine</span>
+                  </div>
+                </div>
+
+                <div className="carousel-footer-note">
+                  No extra setup. Provide liquidity and benefit from Arbit's fee routing.
+                </div>
+              </div>
+
+              {/* Card 4: STOCK POOLS */}
+              <div
+                className={`carousel-card ${getCardClass(4)}`}
+                onClick={() => setCarouselIndex(4)}
+              >
+                <div className="carousel-card-tag">STOCK POOLS</div>
+                <h3 className="carousel-card-title">Lower fees. Higher buyback accrual.</h3>
+                <p className="carousel-card-sub">
+                  Flagged stock pools use ⅔ fees and 1.5× buyback accrual.
+                </p>
+
+                <div className="carousel-box">
+                  <div className="carousel-box-row">
+                    <span style={{ color: "var(--text-muted)" }}>Human fee (stock)</span>
+                    <span className="text-electric" style={{ fontWeight: 700 }}>0.20%</span>
+                  </div>
+                  <div className="carousel-box-row">
+                    <span style={{ color: "var(--text-muted)" }}>Agent fee (stock)</span>
+                    <span className="text-electric" style={{ fontWeight: 700 }}>0.033%</span>
+                  </div>
+                  <div className="carousel-box-row">
+                    <span style={{ color: "var(--text-muted)" }}>Burn accrual</span>
+                    <span style={{ fontWeight: 700, color: "#10B981" }}>1.5× accelerated</span>
+                  </div>
+                </div>
+
+                <div className="carousel-box-row" style={{ background: "rgba(1, 110, 254, 0.15)", padding: "10px 14px", borderRadius: 8, border: "1px solid rgba(1, 110, 254, 0.3)", marginTop: 8 }}>
+                  <span className="mono" style={{ fontSize: 12, color: "var(--accent-blue)" }}>AAPL/USDG · TSLA/USDG</span>
+                  <a href="#stock-pools" className="text-electric" style={{ fontSize: 12, textDecoration: "none", fontWeight: 600 }}>
+                    Trade stock pools →
+                  </a>
+                </div>
+              </div>
+
+              {/* Card 5: BUYBACKS & BURNS */}
+              <div
+                className={`carousel-card ${getCardClass(5)}`}
+                onClick={() => setCarouselIndex(5)}
+              >
+                <div className="carousel-card-tag">BUYBACKS & BURNS</div>
+                <h3 className="carousel-card-title">Trading fees fund ARBT buybacks and burns.</h3>
+                <p className="carousel-card-sub">
+                  A portion of trading fees and bot surcharges funds automatic ARBT buybacks and burns once the onchain threshold and cooldown are met.
+                </p>
+
+                <div className="carousel-box">
+                  <div style={{ marginBottom: 8, fontWeight: 600, color: "#FFFFFF" }}>Burn sources:</div>
+                  <div className="carousel-box-row" style={{ paddingLeft: 8 }}>
+                    <span>• 20% of human swap fees → Buyback Pool</span>
+                  </div>
+                  <div className="carousel-box-row" style={{ paddingLeft: 8 }}>
+                    <span>• 40% of bot surcharge → Instant burn</span>
+                  </div>
+
+                  <div className="carousel-box-divider"></div>
+
+                  <div className="carousel-box-row">
+                    <span style={{ color: "var(--text-muted)" }}>Trigger</span>
+                    <span style={{ fontWeight: 600, color: "#FFFFFF" }}>Threshold + Cooldown</span>
+                  </div>
+                  <div className="carousel-box-row">
+                    <span style={{ color: "var(--text-muted)" }}>Destination</span>
+                    <span className="mono" style={{ fontWeight: 700, color: "#ef4444" }}>0xdead</span>
+                  </div>
+                </div>
+
+                <div className="carousel-footer-note">
+                  Permanent ARBT deflation. Every trade contributes.
+                </div>
+              </div>
+            </div>
+
+            {/* Carousel Controls & Indicators */}
+            <div className="carousel-controls">
+              <button className="carousel-nav-btn" onClick={handlePrevCard} aria-label="Previous card">
+                ←
+              </button>
+
+              <div className="carousel-dots">
+                {[0, 1, 2, 3, 4, 5].map((i) => (
+                  <button
+                    key={i}
+                    className={`carousel-dot ${carouselIndex === i ? "active" : ""}`}
+                    onClick={() => setCarouselIndex(i)}
+                  ></button>
+                ))}
+              </div>
+
+              <button className="carousel-nav-btn" onClick={handleNextCard} aria-label="Next card">
+                →
+              </button>
+            </div>
+          </div>
+        </section>
+
         {/* ── Section 2: How It Works & Participant Lanes ───────────── */}
         <section className="section" id="lanes">
           <div className="section-header">
@@ -403,90 +857,133 @@ export default function ArbitDappPage() {
 
           <div className="lanes-grid">
             {/* Lane 1: Human Trader */}
-            <div className="lane-card">
+            <div className={`lane-card${expandedLane === 0 ? " expanded" : ""}`} onClick={() => toggleLane(0)}>
               <span className="lane-badge badge-human">Human Swapper</span>
               <h3 className="lane-title">Protected Flow</h3>
               <div className="lane-fee-row">
                 <span className="lane-fee-large">0.30%</span>
                 <span className="lane-fee-label">30 bps standard</span>
               </div>
-              <p className="lane-desc">
-                Standard retail and institutional swap flow. Shielded from predatory MEV extraction.
-                A healthy fraction of the fee feeds the permanent token deflation engine.
-              </p>
+
+              {/* Always Visible: Flow Percentages */}
               <div className="flow-breakdown">
                 <div className="flow-item">
                   <span className="flow-key">80% of fee</span>
-                  <span className="flow-val">Uniswap v4 LPs</span>
+                  <span className="flow-val">→ LPs</span>
                 </div>
                 <div className="flow-item">
                   <span className="flow-key">20% of fee</span>
-                  <span className="flow-val text-electric">Buyback Pool (ARBT)</span>
+                  <span className="flow-val text-electric">→ Buyback Pool</span>
                 </div>
-                <div className="flow-item">
-                  <span className="flow-key">Classification</span>
-                  <span className="flow-val">Default EOA / hookData</span>
+              </div>
+
+              {/* Expandable Content */}
+              <div className={`lane-expandable${expandedLane === 0 ? " open" : ""}`}>
+                <p className="lane-desc" style={{ marginBottom: 16 }}>
+                  Standard retail and institutional swap flow. Shielded from predatory MEV extraction.
+                  A healthy fraction of the fee feeds the permanent token deflation engine.
+                </p>
+                <div className="flow-breakdown">
+                  <div className="flow-item">
+                    <span className="flow-key">Classification</span>
+                    <span className="flow-val">Default EOA / hookData</span>
+                  </div>
                 </div>
+              </div>
+
+              <div className="lane-expand-indicator">
+                <span>{expandedLane === 0 ? "Collapse" : "Details"}</span>
+                <span className={`lane-expand-arrow${expandedLane === 0 ? " rotated" : ""}`}>▼</span>
               </div>
             </div>
 
             {/* Lane 2: Registered Agent (Featured) */}
-            <div className="lane-card featured">
+            <div className={`lane-card featured${expandedLane === 1 ? " expanded" : ""}`} onClick={() => toggleLane(1)}>
               <span className="lane-badge badge-agent">Registered Agent</span>
               <h3 className="lane-title">Incentivized Flow</h3>
               <div className="lane-fee-row">
                 <span className="lane-fee-large">0.05%</span>
                 <span className="lane-fee-label">5 bps (High Rep)</span>
               </div>
-              <p className="lane-desc">
-                Autonomous agents that register with ARBT collateral and build honest track records.
-                They receive the lowest fee in crypto plus tokenized cash-back rewards.
-              </p>
+
+              {/* Always Visible: Flow Percentages */}
               <div className="flow-breakdown">
                 <div className="flow-item">
-                  <span className="flow-key">Base Fee</span>
-                  <span className="flow-val text-electric">0.05% (800+ rep)</span>
+                  <span className="flow-key">50% rebate</span>
+                  <span className="flow-val text-electric">→ ARBT Reward</span>
                 </div>
                 <div className="flow-item">
-                  <span className="flow-key">Fee Rebate</span>
-                  <span className="flow-val">50% back in ARBT</span>
+                  <span className="flow-key">Net effective</span>
+                  <span className="flow-val">0.025%</span>
                 </div>
-                <div className="flow-item">
-                  <span className="flow-key">Mid Rep (500–799)</span>
-                  <span className="flow-val">0.15% fee · 25% back</span>
+              </div>
+
+              {/* Expandable Content */}
+              <div className={`lane-expandable${expandedLane === 1 ? " open" : ""}`}>
+                <p className="lane-desc" style={{ marginBottom: 16 }}>
+                  Autonomous agents that register with ARBT collateral and build honest track records.
+                  They receive the lowest fee in crypto plus tokenized cash-back rewards.
+                </p>
+                <div className="flow-breakdown">
+                  <div className="flow-item">
+                    <span className="flow-key">Base Fee</span>
+                    <span className="flow-val text-electric">0.05% (800+ rep)</span>
+                  </div>
+                  <div className="flow-item">
+                    <span className="flow-key">Mid Rep (500–799)</span>
+                    <span className="flow-val">0.15% fee · 25% back</span>
+                  </div>
+                  <div className="flow-item">
+                    <span className="flow-key">Collateral Stake</span>
+                    <span className="flow-val">≥ 100 ARBT locked</span>
+                  </div>
                 </div>
-                <div className="flow-item">
-                  <span className="flow-key">Collateral Stake</span>
-                  <span className="flow-val">≥ 100 ARBT locked</span>
-                </div>
+              </div>
+
+              <div className="lane-expand-indicator">
+                <span>{expandedLane === 1 ? "Collapse" : "Details"}</span>
+                <span className={`lane-expand-arrow${expandedLane === 1 ? " rotated" : ""}`}>▼</span>
               </div>
             </div>
 
             {/* Lane 3: Unregistered Bot */}
-            <div className="lane-card">
+            <div className={`lane-card${expandedLane === 2 ? " expanded" : ""}`} onClick={() => toggleLane(2)}>
               <span className="lane-badge badge-bot">Unregistered Bot</span>
               <h3 className="lane-title">Penalty Lane</h3>
               <div className="lane-fee-row">
                 <span className="lane-fee-large">1.00%</span>
                 <span className="lane-fee-label">100 bps tax</span>
               </div>
-              <p className="lane-desc">
-                Sandwich bots, rapid multi-swap blocks, and uncollateralized extractors face a 100 bps
-                penalty fee. Their toll directly funds victims and burns ARBT.
-              </p>
+
+              {/* Always Visible: Flow Percentages */}
               <div className="flow-breakdown">
                 <div className="flow-item">
                   <span className="flow-key">60% of tax</span>
-                  <span className="flow-val">Victim Compensation</span>
+                  <span className="flow-val">→ Victim Fund</span>
                 </div>
                 <div className="flow-item">
                   <span className="flow-key">40% of tax</span>
-                  <span className="flow-val text-electric">Buyback + Burn (0xdead)</span>
+                  <span className="flow-val text-electric">→ Buyback + Burn</span>
                 </div>
-                <div className="flow-item">
-                  <span className="flow-key">Detection</span>
-                  <span className="flow-val">Block bursts & gas spikes</span>
+              </div>
+
+              {/* Expandable Content */}
+              <div className={`lane-expandable${expandedLane === 2 ? " open" : ""}`}>
+                <p className="lane-desc" style={{ marginBottom: 16 }}>
+                  Sandwich bots, rapid multi-swap blocks, and uncollateralized extractors face a 100 bps
+                  penalty fee. Their toll directly funds victims and burns ARBT.
+                </p>
+                <div className="flow-breakdown">
+                  <div className="flow-item">
+                    <span className="flow-key">Detection</span>
+                    <span className="flow-val">Block bursts & gas spikes</span>
+                  </div>
                 </div>
+              </div>
+
+              <div className="lane-expand-indicator">
+                <span>{expandedLane === 2 ? "Collapse" : "Details"}</span>
+                <span className={`lane-expand-arrow${expandedLane === 2 ? " rotated" : ""}`}>▼</span>
               </div>
             </div>
           </div>
@@ -546,461 +1043,87 @@ export default function ArbitDappPage() {
           </div>
         </section>
 
-        {/* ── Section 3: Stock Pools (Tokenized Equities Edge) ───────── */}
-        <section className="section" id="stock-pools">
-          <div className="section-header">
-            <div className="section-tag">Robinhood Chain Native Edge</div>
-            <h2 className="section-title">Tokenized Stock Pools</h2>
-            <p className="section-desc">
-              Pools flagged as tokenized equities (e.g. AAPL/USDG, TSLA/USDG) receive built-in economic
-              subsidies: 2/3 fee discounts to attract institutional volume, paired with a 1.5x burn acceleration schedule.
+
+
+        {/* ── Section: Why The System Exists ─────────────────────────────── */}
+        <section className="section" id="why-system-exists">
+          <div className="why-card">
+            <div className="section-tag" style={{ marginBottom: 20 }}>WHY THE SYSTEM EXISTS</div>
+            <h2 className="why-headline">
+              We want every trader on Robinhood Chain to get more from every swap.
+            </h2>
+            <p className="why-desc">
+              Protection, better fees, rewards, liquidity incentives, and buybacks — all made possible by a programmable market that can adapt the economics of every trade.
             </p>
-          </div>
-
-          <div className="stock-comparison-grid">
-            {/* Standard Pool */}
-            <div className="stock-card">
-              <div className="stock-card-header">
-                <h3 className="lane-title">Standard Crypto Pool</h3>
-                <span className="stat-indicator indicator-live">Base Dynamic Fee</span>
-              </div>
-              <p className="lane-desc">
-                Crypto pairs (ETH/ARBT, USDC/ARBT). Full fee tier schedule with standard 1.0x accrual velocity.
-              </p>
-              <table className="table-custom">
-                <thead>
-                  <tr>
-                    <th>Participant</th>
-                    <th>Fee Rate</th>
-                    <th>Burn Accrual</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>Human Swapper</td>
-                    <td>0.30% (30 bps)</td>
-                    <td>1.0x (20% to pool)</td>
-                  </tr>
-                  <tr>
-                    <td>Registered Agent</td>
-                    <td>0.05% (5 bps)</td>
-                    <td>1.0x (50% rebate)</td>
-                  </tr>
-                  <tr>
-                    <td>Unregistered Bot</td>
-                    <td>1.00% (100 bps)</td>
-                    <td>1.0x (40% to burn)</td>
-                  </tr>
-                </tbody>
-              </table>
+            <div className="why-author">
+              — Hesed Anu, Founder & Lead Developer
             </div>
-
-            {/* Tokenized Stock Pool */}
-            <div className="stock-card active-stock">
-              <div className="stock-card-header">
-                <h3 className="lane-title">Stock Pool (AAPL, TSLA)</h3>
-                <span className="stock-pill">2/3 Fees · 1.5x Burn</span>
-              </div>
-              <p className="lane-desc">
-                Robinhood Chain equities. Lower fees attract large-block equity volume while accelerating the token burn rate.
-              </p>
-              <table className="table-custom">
-                <thead>
-                  <tr>
-                    <th>Participant</th>
-                    <th>Subsidized Fee</th>
-                    <th>Boosted Accrual</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>Human Swapper</td>
-                    <td className="table-highlight">0.20% (20 bps)</td>
-                    <td className="table-highlight">1.5x Accelerated</td>
-                  </tr>
-                  <tr>
-                    <td>Registered Agent</td>
-                    <td className="table-highlight">0.033% (3.3 bps)</td>
-                    <td className="table-highlight">1.5x Accelerated</td>
-                  </tr>
-                  <tr>
-                    <td>Unregistered Bot</td>
-                    <td className="table-highlight">0.66% (66 bps)</td>
-                    <td className="table-highlight">1.5x Accelerated</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="multiplier-callout">
-            <strong>The Stock Accrual Engine:</strong> Stock trades run through <code>_applyStockBoost</code> in{" "}
-            <code>ArbitHook.sol</code>, calculating <code>(amount * 150) / 100</code> on every fee collection.
-            Trades fill the shared burn pool 50% faster, triggering the autonomous <code>_executeBuyback()</code> sooner.
           </div>
         </section>
 
-        {/* ── Section 4: Arbit Badges ───────────────────────────────── */}
-        <section className="section" id="badges">
+        {/* ── Section 4: FAQ (Frequently Asked Questions) ───────────────── */}
+        <section className="section" id="faq">
           <div className="section-header">
-            <div className="section-tag">Onchain Reputation Passes</div>
-            <h2 className="section-title">Arbit Badges & Holder Perks</h2>
+            <div className="section-tag">FAQ</div>
+            <h2 className="section-title">Frequently Asked Questions</h2>
             <p className="section-desc">
-              Achievement badges issued via <code>ArbitBadge.sol</code>.
-              Holding <strong>ANY</strong> badge cuts your swap fees in half across all Arbit pools.
+              Everything you need to know about how Arbit handles pools, trading fees, bot detection, MEV protection, and governance.
             </p>
           </div>
 
-          <div className="badges-grid">
-            {/* Bronze */}
-            <div className="badge-card">
-              <div className="badge-tier-top">
-                <div className="badge-icon-wrap tier-bronze">BR</div>
-                <span className="badge-req">Tier 0 · Register</span>
-              </div>
-              <h3 className="badge-title">Bronze Pass</h3>
-              <div className="badge-perk">Halves all swap fees</div>
-              <p className="badge-desc">
-                Awarded immediately upon staking ≥100 ARBT in the registry. Signals valid collateral backing.
-              </p>
-              <div className="badge-action-area">
-                {agentStatus.badges.bronze ? (
-                  <div className="badge-claimed-pill">✓ Claimed / Active</div>
-                ) : (
-                  <button
-                    className="btn btn-outline"
-                    style={{ width: "100%" }}
-                    onClick={() => handleClaimBadge(0)}
-                    disabled={!agentStatus.isRegistered || badgeBusyTier === 0}
-                  >
-                    {badgeBusyTier === 0 ? "Minting…" : "Claim Bronze"}
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Silver */}
-            <div className="badge-card">
-              <div className="badge-tier-top">
-                <div className="badge-icon-wrap tier-silver">AG</div>
-                <span className="badge-req">Tier 1 · 500+ Rep</span>
-              </div>
-              <h3 className="badge-title">Silver Pass</h3>
-              <div className="badge-perk">Halves all swap fees</div>
-              <p className="badge-desc">
-                Unlocked when an agent reaches 500 reputation score through verified trades and zero exploit attempts.
-              </p>
-              <div className="badge-action-area">
-                {agentStatus.badges.silver ? (
-                  <div className="badge-claimed-pill">✓ Claimed / Active</div>
-                ) : (
-                  <button
-                    className="btn btn-outline"
-                    style={{ width: "100%" }}
-                    onClick={() => handleClaimBadge(1)}
-                    disabled={!agentStatus.isRegistered || agentStatus.reputationScore < 500 || badgeBusyTier === 1}
-                  >
-                    {badgeBusyTier === 1 ? "Minting…" : "Claim Silver (500 Rep)"}
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Gold */}
-            <div className="badge-card">
-              <div className="badge-tier-top">
-                <div className="badge-icon-wrap tier-gold">AU</div>
-                <span className="badge-req">Tier 2 · 800+ Rep</span>
-              </div>
-              <h3 className="badge-title">Gold Pass</h3>
-              <div className="badge-perk">Halves all swap fees</div>
-              <p className="badge-desc">
-                Elite status for top institutional and algorithmic traders. Maximizes token cash-back and protocol governance weight.
-              </p>
-              <div className="badge-action-area">
-                {agentStatus.badges.gold ? (
-                  <div className="badge-claimed-pill">✓ Claimed / Active</div>
-                ) : (
-                  <button
-                    className="btn btn-outline"
-                    style={{ width: "100%" }}
-                    onClick={() => handleClaimBadge(2)}
-                    disabled={!agentStatus.isRegistered || agentStatus.reputationScore < 800 || badgeBusyTier === 2}
-                  >
-                    {badgeBusyTier === 2 ? "Minting…" : "Claim Gold (800 Rep)"}
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="badge-banner">
-            <div>
-              <h4 className="heading" style={{ fontSize: 18, marginBottom: 4 }}>
-                Direct Hook Verification: <code>badge.balanceOf(trader) &gt; 0</code>
-              </h4>
-              <p className="stat-desc" style={{ maxWidth: 700 }}>
-                In <code>ArbitHook:220</code>, any swapper holding an Arbit Badge gets their fee cut in half:
-                Human 0.30% → 0.15%, Agent High 0.05% → 0.025%.
-              </p>
-            </div>
-            <a href="#register" className="btn btn-primary">
-              Register to Qualify →
-            </a>
-          </div>
-        </section>
-
-        {/* ── Section 5: Register as Agent ──────────────────────────── */}
-        <section className="section" id="register">
-          <div className="section-header">
-            <div className="section-tag">Direct Onchain Integration</div>
-            <h2 className="section-title">Register as Trading Agent</h2>
-            <p className="section-desc">
-              Directly call <code>ArbitRegistry.register(stakeAmount)</code>. No wrappers or complex setup.
-              Stake ARBT collateral, unlock the 0.05% tier, and begin earning fee rebates.
-            </p>
-          </div>
-
-          <div className="register-grid">
-            {/* Left Box: Registration Form */}
-            <div className="reg-card">
-              <h3 className="heading" style={{ fontSize: 20, marginBottom: 16 }}>
-                {agentStatus.isRegistered ? "Agent Collateral Management" : "New Agent Stake"}
-              </h3>
-
-              <div className="form-group">
-                <label className="form-label">Stake Amount (ARBT)</label>
-                <div className="form-input-box">
-                  <input
-                    type="number"
-                    className="form-input"
-                    value={stakeInput}
-                    onChange={(e) => setStakeInput(e.target.value)}
-                    min="100"
-                    placeholder="100"
-                  />
-                  <span className="form-unit">ARBT</span>
-                </div>
-                <div className="preset-pills">
-                  <button className="preset-btn" onClick={() => setStakeInput("100")}>Min (100)</button>
-                  <button className="preset-btn" onClick={() => setStakeInput("250")}>250 ARBT</button>
-                  <button className="preset-btn" onClick={() => setStakeInput("500")}>500 ARBT</button>
-                  <button className="preset-btn" onClick={() => setStakeInput("1000")}>1,000 ARBT</button>
-                </div>
-              </div>
-
-              <div className="form-group">
-                <div className="flow-breakdown">
-                  <div className="flow-item">
-                    <span className="flow-key">Minimum Stake</span>
-                    <span className="flow-val">100 ARBT</span>
+          <div className="faq-grid">
+            {FAQ_ITEMS.map((item, idx) => {
+              const isOpen = openFaq === idx;
+              return (
+                <div
+                  key={idx}
+                  className={`faq-card ${isOpen ? "open" : ""}`}
+                  onClick={() => setOpenFaq(isOpen ? null : idx)}
+                >
+                  <div className="faq-question">
+                    <span className="faq-q-text">{item.q}</span>
+                    <span className={`faq-icon ${isOpen ? "rotated" : ""}`}>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                      </svg>
+                    </span>
                   </div>
-                  <div className="flow-item">
-                    <span className="flow-key">Starting Reputation</span>
-                    <span className="flow-val text-electric">500 / 1000</span>
-                  </div>
-                  <div className="flow-item">
-                    <span className="flow-key">Your ARBT Balance</span>
-                    <span className="flow-val">{Number(agentStatus.arbtBalance).toFixed(2)} ARBT</span>
-                  </div>
-                </div>
-              </div>
-
-              <button
-                className="btn btn-primary"
-                style={{ width: "100%", padding: "14px" }}
-                onClick={handleApproveAndRegister}
-                disabled={txType === "busy"}
-              >
-                {txType === "busy"
-                  ? "Processing on Robinhood Chain…"
-                  : agentStatus.isRegistered
-                  ? "Deposit Additional Collateral"
-                  : "Approve ARBT & Register"}
-              </button>
-
-              {txMessage && (
-                <div className={`status-terminal ${txType === "success" ? "success" : txType === "error" ? "error" : ""}`}>
-                  {txMessage}
-                </div>
-              )}
-            </div>
-
-            {/* Right Box: Live Agent Status */}
-            <div className="agent-live-card">
-              <h3 className="heading" style={{ fontSize: 20, marginBottom: 16 }}>
-                Connected Identity Status
-              </h3>
-
-              <div className="flow-breakdown" style={{ marginBottom: 20 }}>
-                <div className="flow-item">
-                  <span className="flow-key">Wallet Address</span>
-                  <span className="flow-val mono">{account ? truncateAddress(account) : "Not Connected"}</span>
-                </div>
-                <div className="flow-item">
-                  <span className="flow-key">Registration Status</span>
-                  <span className="flow-val">
-                    {agentStatus.active ? (
-                      <span className="text-electric">ACTIVE AGENT</span>
-                    ) : (
-                      <span style={{ color: "var(--text-muted)" }}>UNREGISTERED (HUMAN)</span>
-                    )}
-                  </span>
-                </div>
-                <div className="flow-item">
-                  <span className="flow-key">Collateral Staked</span>
-                  <span className="flow-val mono">{agentStatus.stakedAmount} ARBT</span>
-                </div>
-                <div className="flow-item">
-                  <span className="flow-key">Current Fee Rate</span>
-                  <span className="flow-val text-electric mono">
-                    {(agentStatus.feeTierBps / 100).toFixed(2)}% ({agentStatus.feeTierBps} bps)
-                  </span>
-                </div>
-              </div>
-
-              {/* Reputation Meter */}
-              <div className="rep-meter-container">
-                <div className="rep-meter-labels">
-                  <span>Reputation Score</span>
-                  <span className="text-electric mono">
-                    {agentStatus.reputationScore} / 1000
-                  </span>
-                </div>
-                <div className="rep-bar-bg">
-                  <div
-                    className="rep-bar-fill"
-                    style={{ width: `${Math.min(100, (agentStatus.reputationScore / 1000) * 100)}%` }}
-                  ></div>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4, fontSize: 10, color: "var(--text-muted)" }} className="mono">
-                  <span>0 (Low)</span>
-                  <span>500 (Base)</span>
-                  <span>800 (High Fee Tier)</span>
-                </div>
-              </div>
-
-              {/* Pending Rewards Claim */}
-              <div style={{ marginTop: 24, paddingTop: 16, borderTop: "1px solid var(--border-subtle)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                  <div>
-                    <div style={{ fontSize: 12, color: "var(--text-muted)" }} className="mono">ACCUMULATED CASH-BACK</div>
-                    <div style={{ fontSize: 20, fontWeight: 700 }} className="mono text-electric">
-                      {Number(agentStatus.pendingRewards).toFixed(2)} ARBT
+                  {isOpen && (
+                    <div className="faq-answer">
+                      <p>{item.a}</p>
                     </div>
-                  </div>
-                  <button
-                    className="btn btn-outline"
-                    onClick={handleClaimReward}
-                    disabled={Number(agentStatus.pendingRewards) <= 0 || rewardBusy}
-                  >
-                    {rewardBusy ? "Claiming…" : "Claim Rewards"}
-                  </button>
+                  )}
                 </div>
-                <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                  Agents pull rewards via <code>hook.claimReward()</code> — reentrancy protected pull pattern.
-                </div>
-              </div>
-            </div>
+              );
+            })}
           </div>
         </section>
       </main>
 
       {/* ── Footer ─────────────────────────────────────────────────── */}
       <footer className="footer">
-        <div className="page-container">
-          <div className="footer-grid">
-            {/* Left: Contracts */}
-            <div>
-              <h4 className="heading" style={{ fontSize: 16, marginBottom: 16, color: "#FFFFFF" }}>
-                Verified Contract Addresses
-              </h4>
-              <div className="footer-contract-list">
-                <div className="contract-row">
-                  <span className="contract-name">ArbitHook</span>
-                  <span className="contract-addr mono">{truncateAddress(CONFIG.HOOK_ADDRESS)}</span>
-                  <button
-                    className="copy-btn"
-                    onClick={() => copyToClipboard(CONFIG.HOOK_ADDRESS, "hook")}
-                  >
-                    {copiedKey === "hook" ? "COPIED" : "COPY"}
-                  </button>
-                </div>
-
-                <div className="contract-row">
-                  <span className="contract-name">ArbitRegistry</span>
-                  <span className="contract-addr mono">{truncateAddress(CONFIG.REGISTRY_ADDRESS)}</span>
-                  <button
-                    className="copy-btn"
-                    onClick={() => copyToClipboard(CONFIG.REGISTRY_ADDRESS, "reg")}
-                  >
-                    {copiedKey === "reg" ? "COPIED" : "COPY"}
-                  </button>
-                </div>
-
-                <div className="contract-row">
-                  <span className="contract-name">ArbitToken (ARBT)</span>
-                  <span className="contract-addr mono">{truncateAddress(CONFIG.ARBT_ADDRESS)}</span>
-                  <button
-                    className="copy-btn"
-                    onClick={() => copyToClipboard(CONFIG.ARBT_ADDRESS, "arbt")}
-                  >
-                    {copiedKey === "arbt" ? "COPIED" : "COPY"}
-                  </button>
-                </div>
-
-                <div className="contract-row">
-                  <span className="contract-name">PoolManager</span>
-                  <span className="contract-addr mono">{truncateAddress(CONFIG.POOL_MANAGER_ADDRESS)}</span>
-                  <button
-                    className="copy-btn"
-                    onClick={() => copyToClipboard(CONFIG.POOL_MANAGER_ADDRESS, "pm")}
-                  >
-                    {copiedKey === "pm" ? "COPIED" : "COPY"}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Right: Ecosystem Links */}
-            <div>
-              <h4 className="heading" style={{ fontSize: 16, marginBottom: 16, color: "#FFFFFF" }}>
-                Network & Ecosystem
-              </h4>
-              <div className="footer-links-list">
-                <a
-                  href={CONFIG.EXPLORER}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="footer-link-item"
-                >
-                  ↗ Robinhood Chain Explorer
-                </a>
-                <a
-                  href={CONFIG.X_URL}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="footer-link-item"
-                >
-                  ↗ Official X Updates (@arbit_hook)
-                </a>
-                <a
-                  href={CONFIG.DOCS_URL}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="footer-link-item"
-                >
-                  ↗ GitHub Source & Verification Suite
-                </a>
-              </div>
-            </div>
+        <div className="footer-container">
+          <div className="footer-brand-col">
+            <h3 className="footer-brand-title">Arbit</h3>
+            <p className="footer-brand-desc">
+              Trading infrastructure with onchain incentives and protection.
+            </p>
           </div>
 
-          <div className="disclaimer-box">
-            <strong>COMPLIANCE & RISK NOTICE:</strong> ARBT is a utility and governance token on Robinhood Chain.
-            Smart contracts are subject to market and technological risk; tokens can lose value. This interface is provided
-            as an informational open-source tool for decentralized protocol interaction. Not financial, tax, or investment advice.
-            Tokenized stock pools may be subject to jurisdictional restrictions; US persons are excluded regarding synthetic equities.
+          <div className="footer-links">
+            <a href="#" className="footer-link">Explorer</a>
+            <span className="footer-sep">·</span>
+            <a href="#" className="footer-link">Docs</a>
+            <span className="footer-sep">·</span>
+            <a href="#" className="footer-link">X</a>
+          </div>
+
+          <div className="footer-disclaimer">
+            Crypto assets can lose all value. Nothing here is financial advice. Stock-token availability excludes restricted jurisdictions including the US.
+          </div>
+
+          <div className="footer-copyright">
+            © 2026 Arbit
           </div>
         </div>
       </footer>

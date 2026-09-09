@@ -1,10 +1,8 @@
 {
   "schemaVersion": "programmable.arbit-build.v1",
   "compilerVersion": "0.8.26+commit.8a97fa7a.Emscripten.clang",
-  "standardJsonSha256": "sha256:a3c37eb85b7296eb117f1f2daa805ee49601792c9c74747fc9968b9c783ae76a",
-  "fundingMode": "creator-funded",
   "signing": false,
   "broadcast": false,
-  "checkedAt": "2026-09-08T16:22:11.266Z",
+  "checkedAt": "2026-09-09T15:04:40.311Z",
   "dryrun": true
 }

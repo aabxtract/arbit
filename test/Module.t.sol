@@ -23,7 +23,7 @@ contract ModuleTest is Test {
     function setUp() public {
         arbt = new TestERC20(1e30);
         registry = new ArbitRegistry(address(arbt), address(0), address(this));
-        module = new ArbitFeeModule(address(registry), makeAddr("kernel"));
+        module = new ArbitFeeModule(address(registry));
     }
 
     function _key() internal view returns (PoolKey memory) {

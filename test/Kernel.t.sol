@@ -124,7 +124,7 @@ contract KernelTest is Test {
 
         TestERC20 token = new TestERC20(1e30);
         ArbitRegistry registry = new ArbitRegistry(address(token), address(0), address(this));
-        ArbitFeeModule module = new ArbitFeeModule(address(registry), address(0xbeef));
+        ArbitFeeModule module = new ArbitFeeModule(address(registry));
 
         RobinhoodNativeFeeHookV1.PoolConfig memory cfg = RobinhoodNativeFeeHookV1.PoolConfig({
             token: address(token),

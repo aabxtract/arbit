@@ -717,32 +717,37 @@
   },
   "externalContracts": [],
   "launchWallet": "0x473bD9B69D9be7bD808B3e5aCBdb7f4CBb47715a",
-  "nonce": "0x9d7d26a74b0b4aaa3b3d8acddc80f821cbd79511ee1ada6acc7b935aeb21cac5",
+  "nonce": "0x5a3043b9512b971bf02e902d8ec80cd3683427278192102d7133e104a3a81408",
   "permitWindow": {
-    "validAfter": "1788883329",
-    "deadline": "1788886929"
+    "validAfter": "1788965124",
+    "deadline": "1788968724"
   },
   "source": {
     "root": ".",
     "paths": [
-      "build/src"
+      "src",
+      "lib"
     ],
     "sourceLineageNonce": "1",
     "publicOrigin": {
       "url": "https://github.com/aabxtract/arbit",
-      "revision": "6d43d9db8e581031344a5e0041c1e50c9ea568ed"
+      "revision": "204fe2a883109e566ac6a4ac3bc264b8d153afcd"
     }
   },
   "compilationUnits": [
     {
-      "compilationUnitId": "arbit-v4",
-      "standardJson": "standard-json.json"
+      "compilationUnitId": "kernel",
+      "standardJson": "standard-json-kernel.json"
+    },
+    {
+      "compilationUnitId": "arbit",
+      "standardJson": "standard-json-arbit.json"
     }
   ],
   "targets": [
     {
       "targetId": "token",
-      "compilationUnitId": "arbit-v4",
+      "compilationUnitId": "arbit",
       "artifact": "out/token.json",
       "applicantSalt": "0x1111111111111111111111111111111111111111111111111111111111111111",
       "constructorArguments": [
@@ -757,7 +762,7 @@
     },
     {
       "targetId": "registry",
-      "compilationUnitId": "arbit-v4",
+      "compilationUnitId": "arbit",
       "artifact": "out/registry.json",
       "applicantSalt": "0x2222222222222222222222222222222222222222222222222222222222222222",
       "constructorArguments": [
@@ -776,21 +781,80 @@
       "declaredHookPermissions": null,
       "runtimeImmutables": [
         {
-          "immutableId": "2407",
+          "immutableId": "5751",
           "abiType": "address",
           "target": "token"
         },
         {
-          "immutableId": "2412",
+          "immutableId": "5755",
           "abiType": "address",
           "target": "initializer"
         }
       ]
     },
     {
+      "targetId": "module",
+      "compilationUnitId": "arbit",
+      "artifact": "out/module.json",
+      "applicantSalt": "0x3333333333333333333333333333333333333333333333333333333333333333",
+      "constructorArguments": [
+        {
+          "target": "registry"
+        }
+      ],
+      "initializer": null,
+      "deploymentValueWei": "0",
+      "initializerValueWei": "0",
+      "componentKind": "other",
+      "declaredHookPermissions": null,
+      "runtimeImmutables": [
+        {
+          "immutableId": "4818",
+          "abiType": "address",
+          "target": "registry"
+        }
+      ]
+    },
+    {
+      "targetId": "distributor",
+      "compilationUnitId": "arbit",
+      "artifact": "out/distributor.json",
+      "applicantSalt": "0x4444444444444444444444444444444444444444444444444444444444444444",
+      "constructorArguments": [
+        "0x8366a39CC670B4001A1121B8F6A443A643e40951",
+        {
+          "target": "token"
+        },
+        "0x473bD9B69D9be7bD808B3e5aCBdb7f4CBb47715a",
+        "0x473bD9B69D9be7bD808B3e5aCBdb7f4CBb47715a"
+      ],
+      "initializer": null,
+      "deploymentValueWei": "0",
+      "initializerValueWei": "0",
+      "componentKind": "other",
+      "declaredHookPermissions": null,
+      "runtimeImmutables": [
+        {
+          "immutableId": "4230",
+          "abiType": "address",
+          "literal": "0x8366a39cc670b4001a1121b8f6a443a643e40951"
+        },
+        {
+          "immutableId": "4232",
+          "abiType": "address",
+          "target": "token"
+        },
+        {
+          "immutableId": "4234",
+          "abiType": "address",
+          "literal": "0x473bd9b69d9be7bd808b3e5acbdb7f4cbb47715a"
+        }
+      ]
+    },
+    {
       "targetId": "hook",
-      "compilationUnitId": "arbit-v4",
-      "artifact": "out/hook.json",
+      "compilationUnitId": "kernel",
+      "artifact": "out/kernel.json",
       "applicantSalt": {
         "mode": "deterministic-hook-permission-grind-v1",
         "start": "0",
@@ -798,51 +862,104 @@
       },
       "constructorArguments": [
         "0x8366a39CC670B4001A1121B8F6A443A643e40951",
-        {
-          "target": "registry"
-        },
-        {
-          "target": "token"
-        },
-        "0x473bD9B69D9be7bD808B3e5aCBdb7f4CBb47715a",
-        4663
+        [
+          {
+            "target": "token"
+          },
+          8388608,
+          60,
+          "79228162514264337593543950336",
+          {
+            "target": "initializer"
+          },
+          "0x473bD9B69D9be7bD808B3e5aCBdb7f4CBb47715a",
+          "30",
+          "30",
+          {
+            "target": "module"
+          },
+          10000
+        ]
       ],
       "initializer": null,
       "deploymentValueWei": "0",
       "initializerValueWei": "0",
       "componentKind": "hook",
       "declaredHookPermissions": [
+        "beforeInitialize",
         "beforeSwap",
-        "afterSwap"
+        "afterSwap",
+        "beforeSwapReturnDelta",
+        "afterSwapReturnDelta"
       ],
       "runtimeImmutables": [
         {
-          "immutableId": "211",
+          "immutableId": "3460",
           "abiType": "address",
-          "target": "registry"
+          "literal": "0x8366a39cc670b4001a1121b8f6a443a643e40951"
         },
         {
-          "immutableId": "213",
+          "immutableId": "7206",
           "abiType": "address",
           "target": "token"
         },
         {
-          "immutableId": "216",
-          "abiType": "address",
-          "literal": "0x8366a39CC670B4001A1121B8F6A443A643e40951"
+          "immutableId": "7208",
+          "abiType": "uint24",
+          "literal": "8388608"
         },
         {
-          "immutableId": "225",
-          "abiType": "uint256",
-          "literal": "4663"
+          "immutableId": "7210",
+          "abiType": "int24",
+          "literal": "60"
+        },
+        {
+          "immutableId": "7212",
+          "abiType": "uint160",
+          "literal": "79228162514264337593543950336"
+        },
+        {
+          "immutableId": "7214",
+          "abiType": "address",
+          "target": "initializer"
+        },
+        {
+          "immutableId": "7216",
+          "abiType": "uint16",
+          "literal": "30"
+        },
+        {
+          "immutableId": "7218",
+          "abiType": "uint16",
+          "literal": "30"
+        },
+        {
+          "immutableId": "7220",
+          "abiType": "address",
+          "target": "module"
+        },
+        {
+          "immutableId": "7222",
+          "abiType": "bytes32",
+          "literal": "0x7f827a94431a5ebd03b35365c32d5df258785d51c2a12acab75c968e61f5a9d6"
+        },
+        {
+          "immutableId": "7224",
+          "abiType": "uint24",
+          "literal": "10000"
+        },
+        {
+          "immutableId": "7227",
+          "abiType": "address",
+          "literal": "0x240e4f0bc66567907c7915c2348db68797AAA841"
         }
       ]
     },
     {
       "targetId": "initializer",
-      "compilationUnitId": "arbit-v4",
+      "compilationUnitId": "arbit",
       "artifact": "out/initializer.json",
-      "applicantSalt": "0x4444444444444444444444444444444444444444444444444444444444444444",
+      "applicantSalt": "0x5555555555555555555555555555555555555555555555555555555555555555",
       "constructorArguments": [
         "0x8366a39CC670B4001A1121B8F6A443A643e40951",
         "0x0B6b3F40f84Df25D3bd69238f937096177DD09Bd",
@@ -881,22 +998,22 @@
       "declaredHookPermissions": null,
       "runtimeImmutables": [
         {
-          "immutableId": "1644",
+          "immutableId": "4988",
           "abiType": "address",
-          "literal": "0x8366a39CC670B4001A1121B8F6A443A643e40951"
+          "literal": "0x8366a39cc670b4001a1121b8f6a443a643e40951"
         },
         {
-          "immutableId": "1646",
+          "immutableId": "4990",
           "abiType": "address",
-          "literal": "0x0B6b3F40f84Df25D3bd69238f937096177DD09Bd"
+          "literal": "0x0b6b3f40f84df25d3bd69238f937096177dd09bd"
         },
         {
-          "immutableId": "1648",
+          "immutableId": "4992",
           "abiType": "address",
-          "literal": "0x473bD9B69D9be7bD808B3e5aCBdb7f4CBb47715a"
+          "literal": "0x473bd9b69d9be7bd808b3e5acbdb7f4cbb47715a"
         },
         {
-          "immutableId": "1650",
+          "immutableId": "4994",
           "abiType": "uint256",
           "literal": "4663"
         }
@@ -920,7 +1037,7 @@
       "description": "[DRYRUN placeholder] Arbit Uniswap v4 hook: participant-priced swaps, buyback burns, victim fund.",
       "image": {
         "sourcePath": "assets/project.png",
-        "uri": "https://raw.githubusercontent.com/aabxtract/arbit/6d43d9db8e581031344a5e0041c1e50c9ea568ed/pack/assets/project.png"
+        "uri": "https://raw.githubusercontent.com/aabxtract/arbit/204fe2a883109e566ac6a4ac3bc264b8d153afcd/pack/assets/project.png"
       },
       "links": [
         {
@@ -963,7 +1080,7 @@
   },
   "agentAttestation": {
     "agentId": "arbit-pack",
-    "checkedAt": "2026-09-08T16:22:11.266Z",
+    "checkedAt": "2026-09-09T15:04:40.311Z",
     "checks": [
       {
         "checkId": "capabilities",

@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {BeforeSwapDelta, BeforeSwapDeltaLibrary} from "v4-core/src/types/BeforeSwapDelta.sol";
-import {BalanceDelta} from "v4-core/src/types/BalanceDelta.sol";
-import {PoolKey} from "v4-core/src/types/PoolKey.sol";
-import {SwapParams} from "v4-core/src/types/PoolOperation.sol";
-import {LPFeeLibrary} from "v4-core/src/libraries/LPFeeLibrary.sol";
+import {BeforeSwapDelta, BeforeSwapDeltaLibrary} from "../lib/v4-core/src/types/BeforeSwapDelta.sol";
+import {BalanceDelta} from "../lib/v4-core/src/types/BalanceDelta.sol";
+import {PoolKey} from "../lib/v4-core/src/types/PoolKey.sol";
+import {SwapParams} from "../lib/v4-core/src/types/PoolOperation.sol";
+import {LPFeeLibrary} from "../lib/v4-core/src/libraries/LPFeeLibrary.sol";
 import {ArbitRegistry} from "./ArbitRegistry.sol";
 
 /// @title ArbitFeeModule
