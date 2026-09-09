@@ -55,7 +55,6 @@ const websiteUrl = reqUrl("PROGRAMMABLE_WEBSITE_URL");
 const xUrl = reqX("PROGRAMMABLE_X_URL");
 const checkedAt = process.env.PROGRAMMABLE_CHECKED_AT ?? new Date().toISOString();
 const buyWei = reqInt("PROGRAMMABLE_INITIAL_BUY_WEI");
-const lpEthWei = reqInt("PROGRAMMABLE_LP_ETH_WEI");
 const maxGasWei = reqInt("PROGRAMMABLE_MAX_GAS_WEI");
 const minTokensOut = reqInt("PROGRAMMABLE_MIN_TOKENS_OUT");
 const creatorBuyBps = reqInt("PROGRAMMABLE_CREATOR_BUY_BPS");
@@ -260,7 +259,9 @@ const config = {
   compilationUnits: [
     { compilationUnitId: "kernel", standardJson: "standard-json-kernel.json" },
     { compilationUnitId: "seed", standardJson: "standard-json-seed.json" },
-    { compilationUnitId: "arbit", standardJson: "standard-json-arbit.json" },
+    ...(process.env.ARBIT_NO_DISTRIBUTOR === "1"
+      ? []
+      : [{ compilationUnitId: "arbit", standardJson: "standard-json-arbit.json" }]),
   ],
   targets: [
     {
@@ -292,7 +293,9 @@ const config = {
         poolManager: L(pm.toLowerCase()), graphFactory: L(gf.toLowerCase()),
       }),
     },
-    {
+    // Distributor rides only when explicitly kept: its fund-moving powers draw
+    // the custody finding. ARBIT_NO_DISTRIBUTOR=1 drops it (buybacks manual).
+    ...(process.env.ARBIT_NO_DISTRIBUTOR === "1" ? [] : [{
       targetId: "distributor", compilationUnitId: "arbit", artifact: "out/distributor.json",
       applicantSalt: `0x${"44".repeat(32)}`,
       constructorArguments: [pm, { target: "token" }, W, W],
@@ -301,7 +304,7 @@ const config = {
       runtimeImmutables: immutablesFor("arbit/src/ArbitDistributor.sol", "distributor", {
         manager: L(pmL), arbitToken: T("token"), keeper: L(WL),
       }),
-    },
+    }]),
   ],
   pool: {
     tokenTargetId: "token", hookTargetId: "hook", fee: 0, tickSpacing: 60,
