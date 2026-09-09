@@ -45,6 +45,10 @@ contract ArbitRegistry is Ownable, ReentrancyGuard {
     /// path is what wires the official pool before its first swap.
     address public immutable initializer;
     bool private hookSet;
+    /// @notice Off-graph keepers (module path: no hook callbacks exist, so a
+    /// designated keeper rewards observed clean swaps / slashes observed bots).
+    /// Owner-managed, disclosed centralization for the hackathon window.
+    mapping(address => bool) public keepers;
 
     uint256 public constant MIN_STAKE = 100e18;
     uint256 public constant MAX_REPUTATION = 1000;
@@ -61,10 +65,21 @@ contract ArbitRegistry is Ownable, ReentrancyGuard {
     event ReputationUpdated(address agent, uint256 score, bool increased);
     event PoolAllowed(PoolId indexed poolId);
     event HookSet(address indexed hook);
+    event KeeperSet(address indexed keeper, bool allowed);
 
     modifier onlyHook() {
         require(msg.sender == hook, "Only hook");
         _;
+    }
+
+    modifier onlyHookOrKeeper() {
+        require(msg.sender == hook || keepers[msg.sender], "Only hook/keeper");
+        _;
+    }
+
+    function setKeeper(address keeper, bool allowed) external onlyOwner {
+        keepers[keeper] = allowed;
+        emit KeeperSet(keeper, allowed);
     }
 
     constructor(address _arbitToken, address _initializer, address _owner)
@@ -192,7 +207,7 @@ contract ArbitRegistry is Ownable, ReentrancyGuard {
         return highFreq || gasSpike;
     }
 
-    function reward(address agent) external onlyHook nonReentrant {
+    function reward(address agent) external onlyHookOrKeeper nonReentrant {
         Agent storage a = agents[agent];
         if (!a.active) return;
         // EFFECT
@@ -201,7 +216,7 @@ contract ArbitRegistry is Ownable, ReentrancyGuard {
         emit ReputationUpdated(agent, a.reputationScore, true);
     }
 
-    function slash(address agent) external onlyHook nonReentrant {
+    function slash(address agent) external onlyHookOrKeeper nonReentrant {
         Agent storage a = agents[agent];
         if (!a.active) return;
         // EFFECT

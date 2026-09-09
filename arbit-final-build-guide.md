@@ -1,7 +1,7 @@
 # Arbit — Final Build Guide
 **Programmable Hookathon | Deadline: Sep 10, 2026 | Prize: $10,000**
 
-> **Status (Sep 8): `forge build` clean, `forge test` 45 pass + 3 fork opt-in. KERNEL INTEROP PROVEN on mainnet fork: exact `RobinhoodNativeFeeHookV1` + our view-only `ArbitFeeModule` — poked bot pays ~1% vs human ~0.3% through kernel accounting (`test/Kernel.t.sol`, canonical PM). Stock edge + badges live. Slither: 0 high/medium. Module path (per CLI mandate): kernel hook + fee module + keeper-poked registry + distributor (creator-fee sidecar) — module + poke DONE, distributor NEXT, then pack update + preflight. Testnet live (pre-stock/badge). BLOCKING on owner: brand assets, funding, public repo push, preflight key.**
+> **Status (Sep 8): `forge build` clean, `forge test` 50 pass + 4 fork opt-in. MONEY LOOP PROVEN on mainnet fork: exact kernel + fee module + distributor — swaps accrue creator fees → claim → market-buy → 80% burn + 20% victim reserve + payout (`test/MoneyLoop.t.sol`, canonical PM). Kernel interop proven (`test/Kernel.t.sol`). Module units green. Registry keeper role added (reward/slash/poke without hook callbacks). Slither: 0 high/medium. Graph targets (6): token, kernel (exact kit), fee-module, registry, distributor, initializer. Badge deferred post-launch (pack-time $5 fit). Testnet live (pre-stock/badge). BLOCKING on owner: brand assets, funding, public repo push, preflight key.**
 >
 > **Budget — $5 MAX plan (measured Sep 7, gas ~0.24 gwei, ETH ~$2470): badge LEAVES the launch graph (deploys later standalone for ~$0.40 — code stays, `setBadge`/`setMinter` are post-launch owner calls; testnet demo still runs the full suite, redeploy there free via faucet). 4-target pack (token+registry+hook+initializer): init bytes 24,526 ≈ 5.1M gas ≈ $3.03 + init/LP/buy/wiring/Router ≈ $0.75–1.10 → gas ≈ $3.80–4.15. Value: first buy $1.05 (floor) + minimal concentrated LP ~$0.30. TOTAL ≈ $5.15–5.50 at current gas — fits ONLY if gas ≤0.20 gwei at fire time. WATCH: `cast gas-price --rpc-url https://rpc.mainnet.chain.robinhood.com` (÷1e9 = gwei). Fire at ≤200000000 wei. If gas won't dip by Sep 9,Fallback: strip badge wiring from hook source (saves ~$0.15, needs retest) or accept delay. HookFund ARBT costs no ETH. Testnet spending is faucet-funded, outside this budget.**
 
@@ -716,6 +716,8 @@ immutable token/registry refs. Remaining lows triaged benign and documented here
 | 15 | `missing-zero-check` on registry `_initializer` | Accepted — zero disables in-launch wiring (standalone/testnet mode); documented |
 | 16 | `arbitrary-send-erc20` on initializer pull | Accepted — source is the immutable launch wallet bound at construction, not caller-supplied |
 | 17 | Badge holder halving + claim-once flags | `test/Badge.t.sol` (6 tests): tiers, double-claim, auth, discount event, transfer-keeps-perk |
+| 18 | Distributor keeper-gating + minOut sandwich surface | ACCEPTED — keeper runs buys off fresh quotes (owner-managed key); permissionless TWAP execution is post-hackathon. `test/Distributor.t.sol` (5 tests) + fork money-loop proof |
+| 19 | Registry keeper role (reward/slash without hook) | ACCEPTED centralization for module path — owner-managed, disclosed; hook path unchanged |
 
 NOT covered by this audit (state explicitly): economic soundness of fee levels, oracle/TWAP design (doesn't
 exist yet), the Programmable graph/pack layer, offchain demo scripts, upgrade story (none — immutable by design).
