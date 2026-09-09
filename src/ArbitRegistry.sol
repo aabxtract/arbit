@@ -152,6 +152,24 @@ contract ArbitRegistry is Ownable, ReentrancyGuard {
         BotPattern storage pattern = botPatterns[swapper];
         bool isBot = _isBot(gasPrice, pattern);
 
+        // Record pattern (shared with poke() below)
+        _recordPattern(gasPrice, pattern);
+
+        if (isBot) return (FEE_BOT, ParticipantType.BOT);
+        return (FEE_HUMAN, ParticipantType.HUMAN);
+    }
+
+    /// @notice Permissionless pattern recorder for view-only consumers (the
+    /// kernel fee module cannot write state, so keepers/demo scripts record
+    /// observed swaps here; classification reads last-written data, one tx lag).
+    /// Griefing bound: poking only inflates the recorded trader's own
+    /// frequency (they price as BOT and overpay LPs) — attacker pays gas,
+    /// victim loses basis points per swap, LPs gain. Disclosed, accepted.
+    function poke(address trader, uint256 gasPrice) external {
+        _recordPattern(gasPrice, botPatterns[trader]);
+    }
+
+    function _recordPattern(uint256 gasPrice, BotPattern storage pattern) internal {
         // Update pattern
         if (block.number <= pattern.lastSwapBlock + 10) {
             pattern.swapsInWindow++;
@@ -161,9 +179,6 @@ contract ArbitRegistry is Ownable, ReentrancyGuard {
         pattern.lastSwapBlock = block.number;
         pattern.avgGasPrice =
             pattern.avgGasPrice == 0 ? gasPrice : (pattern.avgGasPrice + gasPrice) / 2;
-
-        if (isBot) return (FEE_BOT, ParticipantType.BOT);
-        return (FEE_HUMAN, ParticipantType.HUMAN);
     }
 
     function _isBot(uint256 gasPrice, BotPattern storage pattern)
