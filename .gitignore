@@ -30,7 +30,11 @@ pack/node_modules/
 pack/out/
 pack/evidence/
 pack/build/
+pack/src/
+pack/lib/
 pack/standard-json.json
+pack/standard-json-*.json
 pack/launch*.json
 pack/receipt*.json
 pack/programmable-launch.config.json
+pack/*.log

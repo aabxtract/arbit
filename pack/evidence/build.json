@@ -1,8 +1,0 @@
-{
-  "schemaVersion": "programmable.arbit-build.v1",
-  "compilerVersion": "0.8.26+commit.8a97fa7a.Emscripten.clang",
-  "signing": false,
-  "broadcast": false,
-  "checkedAt": "2026-09-09T15:04:40.311Z",
-  "dryrun": true
-}
