@@ -1,0 +1,12 @@
+import { ethers } from 'ethers';
+import fs from 'fs';
+const key = fs.readFileSync(process.argv[2], 'utf8').trim();
+const data = fs.readFileSync(process.argv[3], 'utf8').trim();
+const provider = new ethers.JsonRpcProvider('https://rpc.mainnet.chain.robinhood.com');
+const wallet = new ethers.Wallet(key, provider);
+const addr = await wallet.getAddress();
+if (addr.toLowerCase() !== '0x473bd9b69d9be7bd808b3e5acbdb7f4cbb47715a') throw new Error('WRONG WALLET ' + addr);
+const tx = await wallet.sendTransaction({ to: '0x34965F2A2ee9254522232C32F02056E92BE0C98a', value: 430000000000000n, data, gasLimit: 12000000n, maxFeePerGas: 300000000n, maxPriorityFeePerGas: 1000000n });
+console.log('HASH:' + tx.hash);
+const rc = await tx.wait(1, 120000);
+console.log('STATUS:' + rc.status + ' BLOCK:' + rc.blockNumber);

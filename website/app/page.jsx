@@ -1238,9 +1238,11 @@ export default function ArbitDappPage() {
           </div>
 
           <div className="footer-links">
-            <a href="#" className="footer-link">Explorer</a>
+            <a href="https://robinhoodchain.blockscout.com" target="_blank" rel="noreferrer" className="footer-link">Explorer</a>
             <span className="footer-sep">·</span>
-            <a href="#" className="footer-link">Docs</a>
+            <a href={CONFIG.DOCS_URL} target="_blank" rel="noreferrer" className="footer-link">Docs</a>
+            <span className="footer-sep">·</span>
+            <a href="/arbit-official" className="footer-link">Official Logo</a>
             <span className="footer-sep">·</span>
             <a href="https://x.com/arbit_hook" target="_blank" rel="noreferrer" className="footer-link">X</a>
           </div>

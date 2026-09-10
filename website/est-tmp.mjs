@@ -1,0 +1,10 @@
+import { ethers } from "ethers";
+import fs from "fs";
+const data = fs.readFileSync(process.argv[2], "utf8").trim();
+const provider = new ethers.JsonRpcProvider("https://rpc.mainnet.chain.robinhood.com");
+const net = await provider.getNetwork();
+console.log("CHAIN:" + net.chainId);
+const g = await provider.estimateGas({ from: "0x473bD9B69D9be7bD808B3e5aCBdb7f4CBb47715a", to: "0x34965F2A2ee9254522232C32F02056E92BE0C98a", value: 430000000000000n, data });
+console.log("ESTIMATE:" + g);
+const f = await provider.getFeeData();
+console.log("MAXFEE:" + f.maxFeePerGas + " PRIORITY:" + f.maxPriorityFeePerGas);
