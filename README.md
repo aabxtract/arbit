@@ -1,4 +1,6 @@
-# Arbit — participant-priced Uniswap v4 hook on Robinhood Chain
+# Arbit — Uniswap v4 hook on Robinhood Chain (Native20 launch)
+
+> **Market limitation note (Sep 10, 2026):** The original Arbit design (`src/ArbitHook.sol:29` participant-priced fees, `ArbitRegistry.sol` classify, `ArbitBadge.sol` halving, stock `1.5x` `ArbitHook.sol:62`, per-swap buyback/victim `ArbitHook.sol:269`) cannot be packed for Programmable mainnet (4663). `capabilities.json:6-15` binds the exact kit `RobinhoodNativeFeeHookV1.sol:44` + `RobinhoodNative20Token.sol:5` + `RobinhoodNative20Initializer.sol:21`; `RobinhoodNative20Initializer.sol:87-88` forces `module==0` and `ticks 160020-200040`. Platform verification (`sourceBuild`) only covers that release tree (`0384904`, 39 files). To ship on time we launch Native20 via `pack/build.mjs:32-35` (exact kit) and retain economics off-hook via `creatorRecipient=ArbitDistributor` `RobinhoodNativeFeeVaultV1.sol:33/55`. Full hook remains on testnet/direct deploy.
 
 Arbit is a Uniswap v4 hook where every swap is priced by **who is trading**.
 Humans pay a standard fee, registered AI agents with good reputation pay less
@@ -7,27 +9,28 @@ victim compensation. A share of every fee feeds an onchain buyback pool that
 market-buys and burns ARBT under a threshold + cooldown guard — so trading
 volume reduces supply. Tokenized-stock pools earn boosted accruals at
 discounted fees. Live on Robinhood testnet; launching on mainnet (4663) via
-Programmable Custom Launch V4.
+Programmable Custom Launch V4 (Native20 kit + distributor replay).
 
 - Hookathon deadline: **Sep 10, 2026** · full spec: `arbit-final-build-guide.md`
 - Website: `website/` (Next.js) · demo scripts: `demo/` · pack workspace: `pack/`
 
 ## Contracts (`src/`)
 
-| Contract | Role |
-|---|---|
-| `ArbitToken.sol` | Fixed 1B ARBT, no mint/tax/pause/upgrade. Pack graph `token` target |
-| `ArbitRegistry.sol` | Agent stake + reputation (0–1000), bot-pattern data, pool allowlist, keeper role |
-| `ArbitHook.sol` | Dynamic-fee hook: classify once, split fees, Buyback Guard, stock-pool 1.5× subsidy, badge-holder halving |
-| `ArbitFeeModule.sol` | View-only fee module for the exact kernel hook (module path): registry tiers → capped override, zero deltas |
-| `ArbitDistributor.sol` | Creator-fee sidecar: claims vault revenue, Guard-gated market-buy + burn (80%), victim reserve (20%) |
-| `ArbitInitializer.sol` | One-shot launch: funds hook, wires registry, inits pool, seeds locked LP, atomic first buy |
-| `ArbitBadge.sol` | Achievement passes (Bronze/Silver/Gold) mirroring reputation; holders pay half fees |
-| `ArbitAgentExecutor.sol` | Optional per-agent swap identity (off-graph tooling) |
+| Contract | Role | Mainnet (4663) |
+|---|---|---|
+| `ArbitToken.sol` | Fixed 1B ARBT, no mint/tax/pause/upgrade. Pack graph `token` target | **Replaced by** `RobinhoodNative20Token.sol:5` (verified kit) |
+| `ArbitRegistry.sol` | Agent stake + reputation (0–1000), bot-pattern data, pool allowlist, keeper role | **Off-hook** - deployed standalone post-launch (hook cannot call `classify` due to `RobinhoodNative20Initializer.sol:88`) |
+| `ArbitHook.sol` | Dynamic-fee hook: classify once, split fees, Buyback Guard, stock-pool 1.5× subsidy, badge-holder halving | **Replaced by** `RobinhoodNativeFeeHookV1.sol:44` (flat `20bps + creatorBps`, `module==0`). Full hook lives on testnet/direct deploy. |
+| `ArbitFeeModule.sol` | View-only fee module for the exact kernel hook (module path): registry tiers → capped override, zero deltas | **Disabled** - initializer blocks module |
+| `ArbitDistributor.sol` | Creator-fee sidecar: claims vault revenue, Guard-gated market-buy + burn (80%), victim reserve (20%) | **Kept** as `creatorRecipient` `RobinhoodNativeFeeHookV1.sol:78` -> `RobinhoodNativeFeeVaultV1.sol:55` ETH buyback/victim replay |
+| `ArbitInitializer.sol` | One-shot launch: funds hook, wires registry, inits pool, seeds locked LP, atomic first buy | **Replaced by** `RobinhoodNative20Initializer.sol:21` (ticks `160020-200040`) |
+| `ArbitBadge.sol` | Achievement passes (Bronze/Silver/Gold) mirroring reputation; holders pay half fees | **Off-hook** - mint post-launch, no on-swap discount |
+| `ArbitAgentExecutor.sol` | Optional per-agent swap identity (off-graph tooling) | **Off-hook** |
 
-Fee schedule: human 30bps (80% LP / 20% buyback), agent high 5 / med 15 / low 30bps
+Original fee schedule: human 30bps (80% LP / 20% buyback), agent high 5 / med 15 / low 30bps
 (up to 50% back as ARBT), bot 100bps (60% victim / 40% buyback+burn).
 Stock pools: ⅔ fees, 1.5× accrual subsidy. Buyback Guard: threshold + 1h cooldown.
+**Mainnet Native20 (due to market limitation):** flat `20bps platform` `RobinhoodNativeFeeHookV1.sol:52` + `creatorBuy/SellFeeBps` to `ArbitDistributor` -> `claimCreator` `RobinhoodNativeFeeVaultV1.sol:55` ETH buys ARBT and burns / compensates victims. Per-swap participant pricing and MEV victim pool inside the hook are not available on this launch pool; they remain in `src/ArbitHook.sol:193` for direct deployments.
 
 ## Test report
 

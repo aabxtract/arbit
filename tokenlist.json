@@ -1,0 +1,15 @@
+{
+  "name": "Arbit Token List",
+  "timestamp": "2026-09-10T14:30:00.000Z",
+  "version": { "major": 1, "minor": 0, "patch": 0 },
+  "tokens": [
+    {
+      "chainId": 4663,
+      "address": "0x34CD7dd63C550a78A3228C199474189B88565Ac9",
+      "name": "Arbit",
+      "symbol": "ARBT",
+      "decimals": 18,
+      "logoURI": "https://raw.githubusercontent.com/aabxtract/arbit/main/pack/assets/arbit-official.png"
+    }
+  ]
+}

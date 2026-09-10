@@ -21,7 +21,11 @@ import "./ArbitBadge.sol";
 /// @notice Uniswap v4 dynamic-fee hook: every swap is priced by participant
 /// type, fees accrue to buyback/victim buckets, and buyback fires under a
 /// cooldown + threshold guard. Spec: arbit-final-build-guide.md.
-/// @dev Implements IHooks directly — pinned v4-periphery has no BaseHook.
+/// @dev Mainnet Native20 launch uses RobinhoodNativeFeeHookV1 (exact kit) due to
+/// Programmable market limitation (RobinhoodNative20Initializer.sol:88 module==0,
+/// ticks 160020-200040). This contract remains the full-featured hook for
+/// testnet (46630) and direct 4663 deploys; see README market limitation note.
+/// Implements IHooks directly — pinned v4-periphery has no BaseHook.
 /// Pool MUST be created with fee = LPFeeLibrary.DYNAMIC_FEE_FLAG or the
 /// beforeSwap fee return is silently ignored (Hooks.sol:263).
 /// Accounting is backed by the hook's real ARBT balance: owner MUST pre-fund
